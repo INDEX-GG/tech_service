@@ -1,7 +1,7 @@
 version: '3.9'
 
 services:
-  tech_service_db:
+  tech_service_db_host:
     container_name: tech_service_db
     hostname: tech_service_db_host
     image: postgres:15
