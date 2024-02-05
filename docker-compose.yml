@@ -3,7 +3,7 @@ version: '3.9'
 services:
   tech_service_db:
     container_name: tech_service_db
-    hostname: tech_service_db
+    hostname: tech_service_db_host
     image: postgres:15
     env_file:
       - .env
