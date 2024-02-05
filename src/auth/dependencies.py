@@ -5,9 +5,8 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from src.auth import service
-from src.auth.exceptions import UsernameTaken, RefreshTokenNotValid
+from src.auth.exceptions import RefreshTokenNotValid, UsernameTaken
 from src.auth.schemas import AuthUser
-
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v2/auth/tokens", auto_error=False)
 

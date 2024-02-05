@@ -1,18 +1,27 @@
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
 from src.auth import service as auth_service
 from src.auth.exceptions import UsernameTaken
-from src.users import service as users_service
-from src.auth.jwt import validate_admin_access, parse_jwt_user_data, validate_users_access
+from src.auth.jwt import parse_jwt_user_data, validate_admin_access
 from src.auth.schemas import JWTData
 from src.database import get_async_session
-from src.users.schemas import UserResponse, CustomerUserResponse, ExecutorUserResponse, CustomersListPaginated, \
-    ExecutorsListPaginated, CreateExecutorInput, CreateCustomerInput, EditUserCredentials, EditUserPersonalData, \
-    EditCustomerCompany
+from src.users import service as users_service
+from src.users.schemas import (
+    CreateCustomerInput,
+    CreateExecutorInput,
+    CustomersListPaginated,
+    CustomerUserResponse,
+    EditCustomerCompany,
+    EditUserCredentials,
+    EditUserPersonalData,
+    ExecutorsListPaginated,
+    ExecutorUserResponse,
+    UserResponse,
+)
 
 router = APIRouter()
 

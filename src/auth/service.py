@@ -11,7 +11,7 @@ from src.auth.config import auth_config
 from src.auth.exceptions import InvalidCredentials
 from src.auth.schemas import AuthUser
 from src.auth.security import check_password
-from src.models import User, execute, fetch_one, RefreshTokens
+from src.models import RefreshTokens, User, execute, fetch_one
 
 
 async def create_user(user: AuthUser) -> dict[str, Any] | None:

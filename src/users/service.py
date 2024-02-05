@@ -1,11 +1,11 @@
 from typing import Any
 
-from sqlalchemy import select, or_, and_, func
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import User, Company, CompanyContacts
-from src.users.schemas import CreateExecutorInput, CreateCustomerInput, EditUserCredentials, EditUserPersonalData
+from src.models import Company, CompanyContacts, User
+from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData
 
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:

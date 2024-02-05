@@ -3,9 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.auth.router import router as auth_router
-from src.users.router import router as users_router
 from src.config import app_configs, settings
-
+from src.users.router import router as users_router
 
 app = FastAPI(**app_configs, root_path="/api/v2")
 app.mount("/static", StaticFiles(directory="static"), name="static")

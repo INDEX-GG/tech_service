@@ -1,7 +1,11 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import Any
+from zoneinfo import ZoneInfo
 
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import (
     Boolean,
     Column,
@@ -14,17 +18,12 @@ from sqlalchemy import (
     String,
     Update,
     func,
-    Enum as EnumSQL
 )
+from sqlalchemy import Enum as EnumSQL
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from src.database import Base, engine
-from enum import Enum
-
-from zoneinfo import ZoneInfo
-
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, ConfigDict, model_validator
 
 
 def convert_datetime_to_gmt(dt: datetime) -> str:

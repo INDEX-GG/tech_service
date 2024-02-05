@@ -9,7 +9,6 @@ from src.auth.dependencies import (
     valid_refresh_token_user,
     valid_user_create,
 )
-
 from src.auth.schemas import AccessTokenResponse, AuthUser, RegisterUserResponse
 
 router = APIRouter()
