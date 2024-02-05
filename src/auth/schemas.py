@@ -34,7 +34,7 @@ class JWTData(CustomModel):
     is_admin: bool = False
     is_executor: bool = False
     is_customer: bool = False
-    role: str = None
+    role: str | None
 
 
 class AccessTokenResponse(CustomModel):
