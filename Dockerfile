@@ -10,9 +10,10 @@ COPY ./requirements.txt /src/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /src/requirements.txt
 
 COPY . /src
+COPY ./scripts /src/scripts
 
 WORKDIR /src
 
-RUN chmod +x /src/scripts/start-prod.sh
+RUN chmod +x ./scripts/start-prod.sh
 
 CMD ["/src/scripts/start-prod.sh"]
