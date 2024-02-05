@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import NullPool
 from sqlalchemy import MetaData
 from src.config import settings
-from src.constants import DB_NAMING_CONVENTION
 
 DATABASE_URL = str(settings.DATABASE_URL)
 

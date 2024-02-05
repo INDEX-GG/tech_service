@@ -1,5 +1,4 @@
-import uuid
-from typing import Any, Dict, Coroutine
+from typing import Any
 
 from sqlalchemy import select, or_, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -194,64 +193,59 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
 
 
 async def block_user(user_id: int, session: AsyncSession) -> bool:
-    try:
-        select_query = select(User).where(User.id == user_id)
-        model = await session.execute(select_query)
-        user = model.scalar_one_or_none()
+    select_query = select(User).where(User.id == user_id)
+    model = await session.execute(select_query)
+    user = model.scalar_one_or_none()
 
-        if user:
-            if user.is_active:
-                user.is_active = False
-                await session.commit()
-                return True
+    if user:
+        if user.is_active:
+            user.is_active = False
+            await session.commit()
+            return True
 
-        return False
-    except:
-        return False
+    return False
 
 
-async def edit_credentials(user_id: int, user_data: EditUserCredentials, session: AsyncSession) -> dict[str, Any] | None:
-    try:
-        user = await get_user_profile_by_id(user_id, session)
+async def edit_credentials(user_id: int, user_data: EditUserCredentials, session: AsyncSession) -> dict[
+                                                                                                       str, Any] | None:
+    user = await get_user_profile_by_id(user_id, session)
 
-        if user:
-            if user.is_active:
-                if not user_data:
-                    return None
+    if user:
+        if user.is_active:
+            if not user_data:
+                return None
 
-                if user_data.username:
-                    user.username = user_data.username
-                if user_data.password:
-                    user.password = user_data.password
+            if user_data.username:
+                user.username = user_data.username
+            if user_data.password:
+                user.password = user_data.password
 
-                await session.commit()
-                await session.refresh(user)
-                return user
-        return None
-    except:
-        return None
+            await session.commit()
+            await session.refresh(user)
+            return user
+    return None
 
 
-async def edit_personal_data(user_id: int, user_data: EditUserPersonalData, session: AsyncSession) -> dict[str, Any] | None:
-    try:
-        user = await get_user_profile_by_id(user_id, session)
+async def edit_personal_data(
+        user_id: int,
+        user_data: EditUserPersonalData, session: AsyncSession
+) -> dict[str, Any] | None:
+    user = await get_user_profile_by_id(user_id, session)
 
-        if user:
-            if user.is_active:
-                if not user_data:
-                    return None
+    if user:
+        if user.is_active:
+            if not user_data:
+                return None
 
-                if user_data.name:
-                    user.name = user_data.name
-                if user_data.phone:
-                    user.phone = user_data.phone
+            if user_data.name:
+                user.name = user_data.name
+            if user_data.phone:
+                user.phone = user_data.phone
 
-                await session.commit()
-                await session.refresh(user)
-                return user
-        return None
-    except:
-        return None
+            await session.commit()
+            await session.refresh(user)
+            return user
+    return None
 
 
 async def get_company_by_id(company_id, session):
@@ -262,24 +256,21 @@ async def get_company_by_id(company_id, session):
 
 
 async def edit_users_company(company_id, company_data, session) -> dict[str, Any] | None:
-    try:
-        company = await get_company_by_id(company_id, session)
+    company = await get_company_by_id(company_id, session)
 
-        if company:
-            if company_data.name:
-                company.name = company_data.name
-            if company_data.address:
-                company.address = company_data.address
-            if company_data.opening_time:
-                company.opening_time = company_data.opening_time
-            if company_data.closing_time:
-                company.closing_time = company_data.closing_time
-            if company_data.only_weekdays:
-                company.only_weekdays = company_data.only_weekdays
+    if company:
+        if company_data.name:
+            company.name = company_data.name
+        if company_data.address:
+            company.address = company_data.address
+        if company_data.opening_time:
+            company.opening_time = company_data.opening_time
+        if company_data.closing_time:
+            company.closing_time = company_data.closing_time
+        if company_data.only_weekdays:
+            company.only_weekdays = company_data.only_weekdays
 
-            await session.commit()
-            await session.refresh(company)
-            return company
-        return None
-    except:
-        return None
+        await session.commit()
+        await session.refresh(company)
+        return company
+    return None

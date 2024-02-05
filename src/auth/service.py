@@ -10,8 +10,8 @@ from src import utils
 from src.auth.config import auth_config
 from src.auth.exceptions import InvalidCredentials
 from src.auth.schemas import AuthUser
-from src.auth.security import check_password  # , hash_password
-from src.models import User, execute, fetch_one, RefreshTokens, Company
+from src.auth.security import check_password
+from src.models import User, execute, fetch_one, RefreshTokens
 
 
 async def create_user(user: AuthUser) -> dict[str, Any] | None:
@@ -20,7 +20,7 @@ async def create_user(user: AuthUser) -> dict[str, Any] | None:
         .values(
             {
                 "username": user.username,
-                "password": user.password,  # hash_password(user.password),
+                "password": user.password,
                 "created_at": datetime.utcnow(),
             }
         )
@@ -75,17 +75,6 @@ async def expire_refresh_token(refresh_token_uuid: UUID4) -> None:
     )
 
     await execute(update_query)
-
-
-# async def authenticate_user(auth_data: AuthUser) -> dict[str, Any]:
-#     user = await get_user_by_username(auth_data.username)
-#     if not user:
-#         raise InvalidCredentials()
-#
-#     if not check_password(auth_data.password, user["password"]):
-#         raise InvalidCredentials()
-#
-#     return user
 
 
 async def authenticate_user(auth_data: OAuth2PasswordRequestForm) -> dict[str, Any]:

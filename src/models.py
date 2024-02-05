@@ -8,12 +8,10 @@ from sqlalchemy import (
     CursorResult,
     DateTime,
     ForeignKey,
-    Identity,
     Insert,
     Integer,
     Select,
     String,
-    Table,
     Update,
     func,
     Enum as EnumSQL
@@ -22,7 +20,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from src.database import Base, engine
 from enum import Enum
-
 
 from zoneinfo import ZoneInfo
 
@@ -99,8 +96,10 @@ class Service(Base):
     status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.NEW)
     media_files = relationship("MediaFiles", back_populates="service", cascade="all, delete-orphan")
 
-    customer = relationship("User", foreign_keys=[customer_id], back_populates="customer_services", single_parent=True, uselist=False)
-    executor = relationship("User", foreign_keys=[executor_id], back_populates="executor_services", single_parent=True, uselist=False)
+    customer = relationship("User", foreign_keys=[customer_id], back_populates="customer_services", single_parent=True,
+                            uselist=False)
+    executor = relationship("User", foreign_keys=[executor_id], back_populates="executor_services", single_parent=True,
+                            uselist=False)
 
 
 class User(Base):
@@ -119,8 +118,10 @@ class User(Base):
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
     customer_company = relationship("Company", back_populates="customer", cascade="all, delete-orphan", uselist=False)
-    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer", cascade="all, delete-orphan")
-    executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor", cascade="all, delete-orphan")
+    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer",
+                                     cascade="all, delete-orphan")
+    executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor",
+                                     cascade="all, delete-orphan")
 
 
 class RefreshTokens(Base):

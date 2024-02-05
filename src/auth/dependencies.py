@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from fastapi import Cookie, Depends
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from src.auth import service

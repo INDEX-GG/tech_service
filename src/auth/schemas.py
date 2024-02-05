@@ -1,8 +1,6 @@
 import re
-from typing import List, Optional
-from uuid import UUID
 
-from pydantic import Field, field_validator  # , EmailStr
+from pydantic import Field, field_validator
 
 from src.models import CustomModel
 
