@@ -13,6 +13,6 @@ COPY . /src
 
 WORKDIR /src
 
-RUN chmod a+x /src/scripts/*.sh
+RUN chmod +x /src/scripts/start-prod.sh
 
 CMD ["/src/scripts/start-prod.sh"]
