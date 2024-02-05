@@ -102,3 +102,16 @@ class EditUserCredentials(CustomModel):
 class EditUserPersonalData(CustomModel):
     name: str = None
     phone: str = None
+
+
+class EditCustomerCompany(CustomModel):
+    name: str = None
+    address: str = None
+    opening_time: str = None
+    closing_time: str = None
+    only_weekdays: bool = None
+
+
+class EditCustomerContacts(CustomModel):
+    phone: str
+    person: str

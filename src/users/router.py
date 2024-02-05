@@ -12,7 +12,8 @@ from src.auth.jwt import validate_admin_access, parse_jwt_user_data, validate_us
 from src.auth.schemas import JWTData
 from src.database import get_async_session
 from src.users.schemas import UserResponse, CustomerUserResponse, ExecutorUserResponse, CustomersListPaginated, \
-    ExecutorsListPaginated, CreateExecutorInput, CreateCustomerInput, EditUserCredentials, EditUserPersonalData
+    ExecutorsListPaginated, CreateExecutorInput, CreateCustomerInput, EditUserCredentials, EditUserPersonalData, \
+    EditCustomerCompany
 
 router = APIRouter()
 
@@ -192,56 +193,23 @@ async def edit_my_personal_data(
         raise HTTPException(status_code=404, detail="Пользователь на найден")
 
 
+@router.patch("/company/{user_id}", response_model=CustomerUserResponse, dependencies=[Depends(validate_admin_access)])
+async def edit_company_data(
+    user_id: int,
+    company_data: EditCustomerCompany,
+    session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
 
+    if company_data:
+        role = "is_customer"
+        user = await users_service.get_user_by_role(user_id, role, session)
+        if user.customer_company:
+            company_id = user.customer_company.id
+            company = await users_service.edit_users_company(company_id, company_data, session)
 
-# @router.patch("/executor/{user_id}", response_model=ExecutorUserResponse, dependencies=[Depends(validate_admin_access)])
-# async def edit_executor_credentials(
-#         user_id: int,
-#         executor_data: EditUserCredentials,
-#         session: AsyncSession = Depends(get_async_session)
-# ) -> dict[str, Any]:
-#     role = "is_executor"
-#     user = await users_service.get_user_by_role(user_id, role, session)
-#
-#     if user:
-#         if executor_data.username:
-#             user.username = executor_data.username
-#         if executor_data.password:
-#             user.password = executor_data.password
-#         await session.commit()
-#         await session.refresh(user)
-#         return user
-#     else:
-#         raise HTTPException(status_code=404, detail="Пользователь на найден")
-
-
-# @router.patch("/customer/{user_id}", response_model=CustomerUserResponse, dependencies=[Depends(validate_admin_access)])
-# async def edit_customer_account(
-#     user_id: int,
-#     customer_data: CreateCustomerInput,
-#     session: AsyncSession = Depends(get_async_session)
-# ) -> dict[str, Any]:
-#     role = "is_customer"
-#     user = await users_service.get_user_by_role(user_id, role, session)
-#
-#     if user:
-#         # user
-#
-#
-#         return user
-#     else:
-#         raise HTTPException(status_code=404, detail="Пользователь на найден")
-
-
-# @router.get("/executor/{user_id}", response_model=ExecutorUserResponse, dependencies=[Depends(validate_admin_access)])
-# async def get_executor_account(
-#     user_id: int,
-#     session: AsyncSession = Depends(get_async_session)
-# ) -> dict[str, Any]:
-#     role = "is_executor"
-#     user = await users_service.get_user_by_role(user_id, role, session)
-#
-#     if user:
-#         return user
-#     else:
-#         raise HTTPException(status_code=404, detail="Пользователь на найден")
+            if company:
+                user.customer_company = company
+                return user
+            else:
+                raise HTTPException(status_code=400, detail="Ошибка при формировании ответа")
+        raise HTTPException(status_code=404, detail="Компания не найдена")

@@ -252,3 +252,34 @@ async def edit_personal_data(user_id: int, user_data: EditUserPersonalData, sess
         return None
     except:
         return None
+
+
+async def get_company_by_id(company_id, session):
+    select_query = select(Company).where(Company.id == company_id).options(selectinload(Company.contacts))
+    model = await session.execute(select_query)
+    company = model.scalar_one_or_none()
+    return company
+
+
+async def edit_users_company(company_id, company_data, session) -> dict[str, Any] | None:
+    try:
+        company = await get_company_by_id(company_id, session)
+
+        if company:
+            if company_data.name:
+                company.name = company_data.name
+            if company_data.address:
+                company.address = company_data.address
+            if company_data.opening_time:
+                company.opening_time = company_data.opening_time
+            if company_data.closing_time:
+                company.closing_time = company_data.closing_time
+            if company_data.only_weekdays:
+                company.only_weekdays = company_data.only_weekdays
+
+            await session.commit()
+            await session.refresh(company)
+            return company
+        return None
+    except:
+        return None
