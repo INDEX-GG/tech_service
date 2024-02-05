@@ -27,7 +27,7 @@ services:
     ports:
       - "5952:8000"
     depends_on:
-      - tech_service_db
+      - tech_service_db_host
 
 volumes:
   app_pg_data:
