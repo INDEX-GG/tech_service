@@ -27,6 +27,7 @@ class UserResponse(CustomModel):
     is_admin: bool
     is_customer: bool
     is_executor: bool
+    role: str | None
     name: str | None
     phone: str | None
     customer_company: UserCompany | None

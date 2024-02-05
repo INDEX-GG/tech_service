@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -40,21 +41,7 @@ class CustomModel(BaseModel):
     )
 
     @model_validator(mode="before")
-    # @classmethod
-    # def set_null_microseconds(cls, data: dict[str, Any]) -> dict[str, Any]:
-    #     if data is not None:
-    #         datetime_fields = {
-    #             k: v.replace(microsecond=0)
-    #             for k, v in data.items()
-    #             if isinstance(k, datetime)
-    #         }
-    #
-    #         return {**data, **datetime_fields}
-    #     return data
     def serializable_dict(self, **kwargs):
-        """Return a dict which contains only serializable fields."""
-        # default_dict = self.model_dump()
-
         return jsonable_encoder(self)
 
 
@@ -74,6 +61,13 @@ class FileTypes(Enum):
 class OwnerTypes(Enum):
     CUSTOMER = "Заказчик"
     EXECUTOR = "Исполнитель"
+
+
+class Roles(Enum):
+    UNBIND = "unbind"
+    ADMIN = "admin"
+    CUSTOMER = "customer"
+    EXECUTOR = "executor"
 
 
 class Service(Base):
@@ -112,6 +106,8 @@ class User(Base):
     is_admin = Column("is_admin", Boolean, server_default="false", nullable=False)
     is_customer = Column("is_customer", Boolean, server_default="false", nullable=False)
     is_executor = Column("is_executor", Boolean, server_default="false", nullable=False)
+    # role = Column("role", EnumSQL(Roles))
+    role = Column("role", String)
     name = Column("name", String, nullable=True)
     phone = Column("phone", String, nullable=True)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)

@@ -25,6 +25,7 @@ def create_access_token(
         "is_admin": user["is_admin"],
         "is_executor": user["is_executor"],
         "is_customer": user["is_customer"],
+        "role": user["role"],
     }
 
     return jwt.encode(jwt_data, auth_config.JWT_SECRET, algorithm=auth_config.JWT_ALG)

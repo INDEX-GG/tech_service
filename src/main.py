@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.auth.router import router as auth_router
 from src.config import app_configs, settings
+from src.database import create_tables
 from src.users.router import router as users_router
 
 app = FastAPI(**app_configs, root_path="/api/v2")
@@ -22,6 +23,7 @@ app.add_middleware(
 
 @app.get("/healthcheck", include_in_schema=False)
 async def healthcheck() -> dict[str, str]:
+    await create_tables()
     print(settings.ENVIRONMENT)
     print(settings.SITE_DOMAIN)
     return {"status": "ok"}
