@@ -11,8 +11,7 @@ from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput
 from src.users.service import get_user_profile_by_id, get_user_by_role
 
 
-async def create_new_service_by_admin(customer_id: int, service_data: ServiceCreateByAdminInput,
-                                      session: AsyncSession) -> dict[str, Any] | None:
+async def create_new_service_by_admin(customer_id: int, service_data: ServiceCreateByAdminInput, session: AsyncSession) -> dict[str, Any] | None:
     try:
         if customer_id == service_data.executor_id:
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
@@ -54,14 +53,13 @@ async def create_new_service_by_admin(customer_id: int, service_data: ServiceCre
         # Обработка ошибок
         print(f"Error creating service by admin: {e}")
         await session.rollback()
-        raise HTTPException(status_code=400, detail=f"{e}")
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         # закрыть сессию после выполнения операций
         await session.close()
 
 
-async def create_new_service_by_customer(customer_id: int, service_data: ServiceCreateInput, session: AsyncSession) -> \
-dict[str, Any] | None:
+async def create_new_service_by_customer(customer_id: int, service_data: ServiceCreateInput, session: AsyncSession) -> dict[str, Any] | None:
     try:
         new_service = Service(
             customer_id=customer_id,

@@ -1,14 +1,16 @@
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
 from src.auth import service as auth_service
-from src.auth.exceptions import UsernameTaken
-from src.auth.jwt import parse_jwt_user_data, validate_admin_access
+from src.auth.exceptions import UsernameTaken, AuthorizationFailed
+from src.auth.jwt import parse_jwt_user_data, validate_admin_access, validate_customer_access, validate_users_access
 from src.auth.schemas import JWTData
 from src.database import get_async_session
+from src.models import User
 from src.users import service as users_service
 from src.users.schemas import (
     CreateCustomerInput,
@@ -20,7 +22,7 @@ from src.users.schemas import (
     EditUserPersonalData,
     ExecutorsListPaginated,
     ExecutorUserResponse,
-    UserResponse,
+    UserResponse, EditCustomerContacts, CompanyContacts,
 )
 
 router = APIRouter()
@@ -225,3 +227,56 @@ async def edit_company_data(
             else:
                 raise HTTPException(status_code=400, detail="Ошибка при формировании ответа")
         raise HTTPException(status_code=404, detail="Компания не найдена")
+
+
+@router.post("/contacts_create", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
+             dependencies=[Depends(validate_customer_access)])
+async def create_new_service(
+        contact_data: EditCustomerContacts,
+        session: AsyncSession = Depends(get_async_session),
+        current_user: User = Depends(parse_jwt_user_data)
+) -> dict[str, Any]:
+
+    customer_id = int(current_user.user_id)
+    contact = await users_service.create_new_contact(customer_id, contact_data, session)
+
+    if not contact:
+        raise HTTPException(status_code=400, detail="Ошибка создания контактных данных")
+
+    return contact
+
+
+@router.post("/contacts_create/{customer_id}", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
+             dependencies=[Depends(validate_admin_access)])
+async def create_new_service(
+        customer_id: int,
+        contact_data: EditCustomerContacts,
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+
+    contact = await users_service.create_new_contact(customer_id, contact_data, session)
+
+    if not contact:
+        raise HTTPException(status_code=400, detail="Ошибка создания контактных данных")
+
+    return contact
+
+
+@router.delete("/contacts_delete/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_company_contacts(
+        contact_id: UUID,
+        session: AsyncSession = Depends(get_async_session),
+        current_user: JWTData = Depends(parse_jwt_user_data)
+) -> None:
+
+    if not any([current_user.is_admin, current_user.is_customer]):
+        raise AuthorizationFailed()
+
+    customer_id = int(current_user.user_id) if current_user.is_customer else None
+    await users_service.delete_customer_contact(contact_id, session, customer_id)
+
+
+# contacts edit by user
+# contacts edit by admin
+
+

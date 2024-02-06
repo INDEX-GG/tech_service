@@ -1,11 +1,15 @@
 from typing import Any
+from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from fastapi import HTTPException
+from sqlalchemy import and_, func, or_, select, delete
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased, joinedload
 
 from src.models import Company, CompanyContacts, User, Roles
-from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData
+from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
+    EditCustomerCompany
 
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:
@@ -250,14 +254,14 @@ async def edit_personal_data(
     return None
 
 
-async def get_company_by_id(company_id, session):
+async def get_company_by_id(company_id: UUID, session: AsyncSession):
     select_query = select(Company).where(Company.id == company_id).options(selectinload(Company.contacts))
     model = await session.execute(select_query)
     company = model.scalar_one_or_none()
     return company
 
 
-async def edit_users_company(company_id, company_data, session) -> dict[str, Any] | None:
+async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany, session: AsyncSession) -> dict[str, Any] | None:
     company = await get_company_by_id(company_id, session)
 
     if company:
@@ -276,3 +280,51 @@ async def edit_users_company(company_id, company_data, session) -> dict[str, Any
         await session.refresh(company)
         return company
     return None
+
+
+async def create_new_contact(customer_id: int, contact_data, session: AsyncSession) -> dict[str, Any]:
+    select_query = select(Company.id).where(Company.user_id == customer_id)
+    model = await session.execute(select_query)
+    company_id = model.scalar_one_or_none()
+
+    contact = CompanyContacts(
+        company_id=company_id,
+        phone=contact_data.phone,
+        person=contact_data.person
+    )
+
+    session.add(contact)
+    await session.commit()
+    await session.refresh(contact)
+
+    return contact
+
+
+async def delete_customer_contact(contact_id: UUID, session: AsyncSession, customer_id: int = None):
+    if customer_id:
+        delete_query = (
+            delete(CompanyContacts)
+            .where(CompanyContacts.id == contact_id)
+            .where(CompanyContacts.company.has(Company.user_id == customer_id))
+        )
+    else:
+        delete_query = delete(CompanyContacts).where(CompanyContacts.id == contact_id)
+
+    try:
+        result = await session.execute(delete_query)
+        affected_rows = result.rowcount
+
+        if affected_rows == 0:
+            raise NoResultFound()
+
+        await session.execute(delete_query)
+        await session.commit()
+        print('Contact deleted successfully')
+
+    except Exception as e:
+        print(f"Error deleting contact: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка удаления контактных данных")
+
+    finally:
+        await session.close()
