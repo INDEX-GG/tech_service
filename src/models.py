@@ -106,8 +106,7 @@ class User(Base):
     is_admin = Column("is_admin", Boolean, server_default="false", nullable=False)
     is_customer = Column("is_customer", Boolean, server_default="false", nullable=False)
     is_executor = Column("is_executor", Boolean, server_default="false", nullable=False)
-    # role = Column("role", EnumSQL(Roles))
-    role = Column("role", String)
+    role = Column("role", EnumSQL(Roles))
     name = Column("name", String, nullable=True)
     phone = Column("phone", String, nullable=True)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
@@ -175,10 +174,10 @@ async def fetch_one(select_query: Select | Insert | Update) -> dict[str, Any] | 
         return cursor.first()._asdict() if cursor.rowcount > 0 else None
 
 
-async def fetch_all(select_query: Select | Insert | Update) -> list[dict[str, Any]]:
-    async with engine.begin() as conn:
-        cursor: CursorResult = await conn.execute(select_query)
-        return [r._asdict() for r in cursor.all()]
+# async def fetch_all(select_query: Select | Insert | Update) -> list[dict[str, Any]]:
+#     async with engine.begin() as conn:
+#         cursor: CursorResult = await conn.execute(select_query)
+#         return [r._asdict() for r in cursor.all()]
 
 
 async def execute(select_query: Insert | Update) -> None:

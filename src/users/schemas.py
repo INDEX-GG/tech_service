@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from src.models import CustomModel
+from src.models import CustomModel, Roles
 
 
 class CompanyContacts(CustomModel):
@@ -27,7 +27,7 @@ class UserResponse(CustomModel):
     is_admin: bool
     is_customer: bool
     is_executor: bool
-    role: str | None
+    role: Roles | None
     name: str | None
     phone: str | None
     customer_company: UserCompany | None

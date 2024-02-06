@@ -3,10 +3,13 @@ from typing import Any
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import service
 from src.auth.exceptions import RefreshTokenNotValid, UsernameTaken
 from src.auth.schemas import AuthUser
+from src.database import get_async_session
+from src.users.service import get_user_profile_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v2/auth/tokens", auto_error=False)
 
@@ -34,8 +37,9 @@ async def valid_refresh_token(
 
 async def valid_refresh_token_user(
     refresh_token: dict[str, Any] = Depends(valid_refresh_token),
+    session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-    user = await service.get_user_by_id(refresh_token["user_id"])
+    user = await get_user_profile_by_id(refresh_token["user_id"], session)
     if not user:
         raise RefreshTokenNotValid()
 

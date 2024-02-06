@@ -19,13 +19,13 @@ def create_access_token(
 ) -> str:
 
     jwt_data = {
-        "sub": str(user["id"]),
+        "sub": str(user.id),
         "exp": datetime.utcnow() + expires_delta,
-        "is_active": user["is_active"],
-        "is_admin": user["is_admin"],
-        "is_executor": user["is_executor"],
-        "is_customer": user["is_customer"],
-        "role": user["role"]
+        "is_active": user.is_active,
+        "is_admin": user.is_admin,
+        "is_executor": user.is_executor,
+        "is_customer": user.is_customer,
+        "role": user.role.value
     }
 
     return jwt.encode(jwt_data, auth_config.JWT_SECRET, algorithm=auth_config.JWT_ALG)

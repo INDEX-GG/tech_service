@@ -2,7 +2,7 @@ import re
 
 from pydantic import Field, field_validator
 
-from src.models import CustomModel
+from src.models import CustomModel, Roles
 
 # STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[\d])(?=.*[!@#$%^&*])[\w!@#$%^&*]{6,128}$")
 WEAK_PASSWORD_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{3,128}$")
@@ -34,7 +34,7 @@ class JWTData(CustomModel):
     is_admin: bool = False
     is_executor: bool = False
     is_customer: bool = False
-    role: str | None
+    role: Roles | None
 
 
 class AccessTokenResponse(CustomModel):

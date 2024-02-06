@@ -201,6 +201,17 @@ async def edit_company_data(
         company_data: EditCustomerCompany,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
+    """
+    Изменение данных компании заказчика по идентификатору пользователя
+
+    Параметры:
+    - user_id: Идентификатор пользователя (заказчика)
+    - company_data: EditCustomerCompany -> Измененные данные компании
+    - validate_admin_access: аутентификация администратора -> access_token
+
+    Возвращает:
+    - CustomerUserResponse: Модель заказчика
+    """
     if company_data:
         role = "is_customer"
         user = await users_service.get_user_by_role(user_id, role, session)

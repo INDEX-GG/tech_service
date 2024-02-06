@@ -136,7 +136,7 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
         is_executor=True,
         name=executor_data.name,
         phone=executor_data.phone,
-        role=Roles.EXECUTOR.value
+        role=Roles.EXECUTOR
     )
 
     session.add(executor)
@@ -153,7 +153,7 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
             password=customer_data.password,
             is_active=True,
             is_customer=True,
-            role=Roles.CUSTOMER.value
+            role=Roles.CUSTOMER
         )
 
         session.add(customer)

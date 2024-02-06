@@ -5,6 +5,7 @@ from typing import Any
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import UUID4
 from sqlalchemy import insert, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import utils
 from src.auth.config import auth_config
@@ -32,14 +33,14 @@ async def create_user(user: AuthUser) -> dict[str, Any] | None:
 
 async def get_user_by_id(user_id: int) -> dict[str, Any] | None:
     select_query = select(User).where(User.id == user_id)
-
     return await fetch_one(select_query)
 
 
-async def get_user_by_username(username: str) -> dict[str, Any] | None:
+async def get_user_by_username(username: str, session: AsyncSession) -> dict[str, Any] | None:
     select_query = select(User).where(User.username == username)
-
-    return await fetch_one(select_query)
+    query = await session.execute(select_query)
+    user = query.scalar_one_or_none()
+    return user
 
 
 async def create_refresh_token(
@@ -77,12 +78,12 @@ async def expire_refresh_token(refresh_token_uuid: UUID4) -> None:
     await execute(update_query)
 
 
-async def authenticate_user(auth_data: OAuth2PasswordRequestForm) -> dict[str, Any]:
-    user = await get_user_by_username(auth_data.username)
+async def authenticate_user(auth_data: OAuth2PasswordRequestForm, session: AsyncSession) -> dict[str, Any]:
+    user = await get_user_by_username(auth_data.username, session)
     if not user:
         raise InvalidCredentials()
 
-    if not check_password(auth_data.password, user["password"]):
+    if not check_password(auth_data.password, user.password):
         raise InvalidCredentials()
 
     return user
