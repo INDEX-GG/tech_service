@@ -28,9 +28,8 @@ from src.database import Base, engine
 
 
 def convert_datetime_to_gmt(dt: datetime) -> str:
-    if not dt.tzinfo:
-        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-
+    # if not dt.tzinfo:
+    #     dt = dt.replace(tzinfo=ZoneInfo("UTC"))
     return dt.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
@@ -81,6 +80,7 @@ class Service(Base):
     description = Column("description", String)
     material_availability = Column("material_availability", Boolean, server_default="false", nullable=False)
     emergency = Column("emergency", Boolean, server_default="false", nullable=False)
+    custom_position = Column("custom_position", Boolean, server_default="false", nullable=False)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
     deadline_at = Column("deadline_at", DateTime, server_default=func.now(), nullable=False)

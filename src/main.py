@@ -6,6 +6,7 @@ from src.auth.router import router as auth_router
 from src.config import app_configs, settings
 from src.database import create_tables
 from src.users.router import router as users_router
+from src.services.router import router as services_router
 
 app = FastAPI(**app_configs, root_path="/api/v2")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -31,7 +32,7 @@ async def healthcheck() -> dict[str, str]:
 
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(users_router, prefix="/users", tags=["Users"])
-# app.include_router(services_router, prefix="/services", tags=["Services"])
+app.include_router(services_router, prefix="/services", tags=["Services"])
 
 
 @app.on_event("startup")
