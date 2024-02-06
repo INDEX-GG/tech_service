@@ -4,12 +4,15 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.models import Service, ServiceStatus
+from src.models import Service, ServiceStatus, User, Company
 from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput
+from src.users.service import get_user_profile_by_id, get_user_by_role
 
 
-async def create_new_service_by_admin(customer_id: int, service_data: ServiceCreateByAdminInput, session: AsyncSession) -> dict[str, Any] | None:
+async def create_new_service_by_admin(customer_id: int, service_data: ServiceCreateByAdminInput,
+                                      session: AsyncSession) -> dict[str, Any] | None:
     try:
         if customer_id == service_data.executor_id:
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
@@ -28,12 +31,22 @@ async def create_new_service_by_admin(customer_id: int, service_data: ServiceCre
             # media_files=,
         )
 
+        # customer = await session.execute(select(User).filter(User.id == customer_id))
+        # customer = await customer.scalar_one_or_none()
+        # new_service.customer = customer
+
         session.add(new_service)
         await session.commit()
         await session.refresh(new_service)
 
+        customer = await get_user_profile_by_id(customer_id, session)
+        new_service.customer = customer
+
+        if service_data.executor_id:
+            executor = await get_user_by_role(service_data.executor_id, "is_executor", session)
+            new_service.executor = executor
+
         # TODO: JOIN MEDIA_FILES TO RESPONSE
-        # TODO: JOIN CustomerModel(USER) & ExecutorModel(USER) TO RESPONSE
 
         return new_service
 
@@ -47,7 +60,8 @@ async def create_new_service_by_admin(customer_id: int, service_data: ServiceCre
         await session.close()
 
 
-async def create_new_service_by_customer(customer_id: int, service_data: ServiceCreateInput, session: AsyncSession) -> dict[str, Any] | None:
+async def create_new_service_by_customer(customer_id: int, service_data: ServiceCreateInput, session: AsyncSession) -> \
+dict[str, Any] | None:
     try:
         new_service = Service(
             customer_id=customer_id,
@@ -64,8 +78,10 @@ async def create_new_service_by_customer(customer_id: int, service_data: Service
         await session.commit()
         await session.refresh(new_service)
 
+        customer = await get_user_profile_by_id(customer_id, session)
+        new_service.customer = customer
+
         # TODO: JOIN MEDIA_FILES TO RESPONSE
-        # TODO: JOIN CustomerModel(USER) TO RESPONSE
 
         return new_service
 
@@ -81,7 +97,11 @@ async def create_new_service_by_customer(customer_id: int, service_data: Service
 
 async def assign_executor_to_service(assign_data, session):
     try:
-        select_query = select(Service).where(Service.id == assign_data.service_id)
+        select_query = (select(Service)
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
+                        .options(selectinload(Service.executor))
+                        .where(Service.id == assign_data.service_id)
+                        )
         model = await session.execute(select_query)
         service = model.scalar_one_or_none()
 
@@ -91,7 +111,6 @@ async def assign_executor_to_service(assign_data, session):
         await session.refresh(service)
 
         # TODO: JOIN MEDIA_FILES TO RESPONSE
-        # TODO: JOIN CustomerModel(USER) & ExecutorModel(USER) TO RESPONSE
 
         return service
 

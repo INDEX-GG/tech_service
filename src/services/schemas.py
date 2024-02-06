@@ -3,6 +3,7 @@ from typing import List
 from uuid import UUID
 
 from src.models import CustomModel, ServiceStatus
+from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 
 class ServiceCreateByAdminInput(CustomModel):
@@ -40,9 +41,9 @@ class ServiceResponse(CustomModel):
     deadline_at: datetime | None
     status: ServiceStatus
     comment: str | None
+    customer: CustomerUserResponse
+    executor: ExecutorUserResponse = None
     # media_files:
-    # customer: CustomerUserResponse
-    # executor: ExecutorUserResponse | None
 
 
 class ServiceAssignInput(CustomModel):
