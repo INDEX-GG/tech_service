@@ -108,7 +108,7 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
     total = total_records.scalar()
 
     select_query = (
-        select(User.id, User.name, User.phone)
+        select(User.id, User.name, User.phone, User.username)
         .where(base_condition, User.is_active)
         .offset(offset)
         .limit(limit)
@@ -122,7 +122,8 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
         response_data.append({
             "id": user.id,
             "name": user.name,
-            "phone": user.phone
+            "phone": user.phone,
+            "username": user.username
         })
 
     response = {

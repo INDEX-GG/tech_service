@@ -52,6 +52,7 @@ class ExecutorsList(CustomModel):
     id: int
     name: str | None
     phone: str | None
+    username: str
 
 
 class CustomersListPaginated(CustomModel):
