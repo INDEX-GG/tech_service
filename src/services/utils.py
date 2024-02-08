@@ -5,13 +5,13 @@ import uuid
 from pathlib import Path
 
 import aiofiles
-from fastapi import Depends, UploadFile
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from PIL import Image
 from pillow_heif import register_heif_opener
 
-from src.database import get_async_session, engine
+from src.database import engine
 from src.models import MediaFiles, OwnerTypes, FileTypes
 
 DEFAULT_CHUNK_SIZE = 1024 * 1024 * 20  # 1 megabytes
@@ -19,7 +19,6 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024 * 20  # 1 megabytes
 
 async def save_video(video_file: UploadFile, service_id: uuid.UUID, owner_type: OwnerTypes):
     filename, file_extension = os.path.splitext(video_file.filename)
-    print('file_extension:', file_extension)
     file_name = str(uuid.uuid4()) + str(file_extension)
     road = service_id
 
@@ -61,22 +60,6 @@ async def save_video_to_db(url: str, service_id: uuid.UUID, owner_type: OwnerTyp
         return True
 
 
-async def get_video_by_uuid(video_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
-    # db_photo = image_crud.get_image_by_uuid(db=db, image_uuid=uuid)
-    # # Если фото не найдено, выводим ошибку
-    # if not db_photo:
-    #     logger.error(f"api/endpoints/image- get_image. Не удалось получить изображение")
-    #     raise HTTPException(404)
-    # # Формируем путь(ссылку) для выдачи изображения
-    # image = f"./files{db_photo.url}/{resolution.value}.webp"
-    # # Если в данной директории нет файла, выводим ошибку
-    # if not Path(image).is_file():
-    #     logger.error(f"api/endpoints/image- get_image. Изображение не найдено в хранилище")
-    #     raise HTTPException(404)
-    # return image
-    pass
-
-
 async def save_images(image_files, service_id, owner_type):
     try:
         road = service_id
@@ -88,7 +71,6 @@ async def save_images(image_files, service_id, owner_type):
             register_heif_opener()
 
             orientation_value = get_image_orientation(image_content)
-            # print('orientation_value:', orientation_value)
 
             im = Image.open(io.BytesIO(image_content))
             # Convert to RGB if needed
@@ -103,9 +85,10 @@ async def save_images(image_files, service_id, owner_type):
 
             file_name = uuid.uuid4()
 
-            await save_image_to_folder(image=im, road=road, file_name=file_name)
+            await save_image_to_folder(im, road, file_name)
 
-            # await write_image_road(post_id=post_id, image_road=road, order=order)  # Если порядок фото нарушается, то убрать await
+            url = f"{road}/{file_name}.webp"
+            await save_image_to_db(url, service_id, owner_type)
 
         return True
     except Exception as e:
@@ -145,3 +128,62 @@ async def save_image_to_folder(image, road, file_name):
     im1 = await make_image_resize(image)
     Path(f"./static/images/{road}").mkdir(parents=True, exist_ok=True)
     im1.save(f"./static/images/{road}/{file_name}.webp", format="webp")
+
+
+async def save_image_to_db(url: str, service_id: uuid.UUID, owner_type: OwnerTypes):
+    async with AsyncSession(engine) as session:
+        image_object = MediaFiles(
+            id=uuid.uuid4(),
+            service_id=service_id,
+            file_type=FileTypes.IMAGE,
+            owner_type=owner_type,
+            url=url
+        )
+        session.add(image_object)
+        await session.commit()
+        await session.refresh(image_object)
+        return True
+
+
+async def get_video_by_uuid(video_id: uuid.UUID):
+    # db_photo = image_crud.get_image_by_uuid(db=db, image_uuid=uuid)
+    # # Если фото не найдено, выводим ошибку
+    # if not db_photo:
+    #     logger.error(f"api/endpoints/image- get_image. Не удалось получить изображение")
+    #     raise HTTPException(404)
+    # # Формируем путь(ссылку) для выдачи изображения
+    # image = f"./files{db_photo.url}/{resolution.value}.webp"
+    # # Если в данной директории нет файла, выводим ошибку
+    # if not Path(image).is_file():
+    #     logger.error(f"api/endpoints/image- get_image. Изображение не найдено в хранилище")
+    #     raise HTTPException(404)
+    # return image
+    pass
+
+
+async def get_image_by_uuid(image_id: uuid.UUID):
+    """
+    Получение изображения по разрешению и идентификатору.
+
+    Параметры:
+    - resolution: Резрешение изображения.
+    - uuid: Идентификатор изображения.
+    - db (Session): Сессия SQLAlchemy для взаимодействия с базой данных.
+
+    Возвращает:
+    - Изображение, как файл .webp
+    """
+
+    # db_photo = image_crud.get_image_by_uuid(db=db, image_uuid=uuid)
+    # # Если фото не найдено, выводим ошибку
+    # if not db_photo:
+    #     logger.error(f"api/endpoints/image- get_image. Не удалось получить изображение")
+    #     raise HTTPException(404)
+    # # Формируем путь(ссылку) для выдачи изображения
+    # image = f"./files{db_photo.url}/{resolution.value}.webp"
+    # # Если в данной директории нет файла, выводим ошибку
+    # if not Path(image).is_file():
+    #     logger.error(f"api/endpoints/image- get_image. Изображение не найдено в хранилище")
+    #     raise HTTPException(404)
+    # return image
+    pass

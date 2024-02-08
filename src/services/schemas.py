@@ -5,13 +5,13 @@ from uuid import UUID
 from fastapi import UploadFile, File
 from pydantic import BaseModel
 
-from src.models import CustomModel, ServiceStatus
+from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes
 from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 
 class ServiceCreateByAdminInput(CustomModel):
     customer_id: int
-    executor_id: int = None
+    executor_id: int | None = None
     title: str
     description: str | None
     material_availability: bool
@@ -31,6 +31,12 @@ class ServiceCreateInput(CustomModel):
     # media_files:
 
 
+class MediaFilesResponse(BaseModel):
+    id: UUID
+    file_type: FileTypes
+    owner_type: OwnerTypes
+
+
 class ServiceResponse(CustomModel):
     id: UUID
     customer_id: int
@@ -46,7 +52,7 @@ class ServiceResponse(CustomModel):
     comment: str | None
     customer: CustomerUserResponse
     executor: ExecutorUserResponse = None
-    # media_files:
+    media_files: List[MediaFilesResponse] = None
 
 
 class ServiceAssignInput(CustomModel):
