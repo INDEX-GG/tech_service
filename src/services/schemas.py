@@ -1,6 +1,9 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+
+from fastapi import UploadFile, File
+from pydantic import BaseModel
 
 from src.models import CustomModel, ServiceStatus
 from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
@@ -49,3 +52,8 @@ class ServiceResponse(CustomModel):
 class ServiceAssignInput(CustomModel):
     service_id: UUID
     executor_id: int
+
+
+class VideoAndImageInput(BaseModel):
+    video_file: Optional[UploadFile] = File(None)
+    image_files: Optional[List[UploadFile]] = File(None)

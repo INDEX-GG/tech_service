@@ -139,3 +139,7 @@ node_modules/
 backup.dump
 backup.dump.gz
 .vscode
+
+# StaticFiles
+/static/images/*
+/static/videos/*

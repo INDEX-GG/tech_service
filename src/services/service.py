@@ -93,7 +93,7 @@ async def create_new_service_by_customer(customer_id: int, service_data: Service
         await session.close()
 
 
-async def assign_executor_to_service(assign_data, session):
+async def assign_executor_to_service(assign_data, session: AsyncSession):
     try:
         select_query = (select(Service)
                         .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
@@ -120,3 +120,5 @@ async def assign_executor_to_service(assign_data, session):
     finally:
         # закрыть сессию после выполнения операций
         await session.close()
+
+

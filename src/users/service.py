@@ -79,7 +79,7 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
 
     response = {
         "total": total,
-        "customers": response_data
+        "items": response_data
     }
     return response
 
@@ -127,7 +127,7 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
 
     response = {
         "total": total,
-        "executors": response_data
+        "items": response_data
     }
     return response
 

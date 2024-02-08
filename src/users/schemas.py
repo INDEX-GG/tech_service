@@ -56,7 +56,7 @@ class ExecutorsList(CustomModel):
 
 class CustomersListPaginated(CustomModel):
     total: int
-    customers: List[CustomersList]
+    items: List[CustomersList]
 
 
 class ExecutorUserResponse(CustomModel):
@@ -69,7 +69,7 @@ class ExecutorUserResponse(CustomModel):
 
 class ExecutorsListPaginated(CustomModel):
     total: int
-    executors: List[ExecutorsList]
+    items: List[ExecutorsList]
 
 
 class CreateExecutorInput(CustomModel):
