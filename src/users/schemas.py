@@ -36,6 +36,7 @@ class UserResponse(CustomModel):
 class CustomerUserResponse(CustomModel):
     id: int
     username: str
+    password: str
     is_active: bool
     name: str | None
     phone: str | None
@@ -63,6 +64,7 @@ class CustomersListPaginated(CustomModel):
 class ExecutorUserResponse(CustomModel):
     id: int
     username: str
+    password: str
     is_active: bool
     name: str
     phone: str | None  # TODO: Check could it be None?
