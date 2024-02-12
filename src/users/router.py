@@ -98,6 +98,11 @@ async def create_new_customer(
         customer_data: CreateCustomerInput,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
+
+    user = auth_service.get_user_by_username(customer_data.username, session)
+    if user:
+        raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
+
     customer = await users_service.create_customer(customer_data, session)
 
     if customer:
@@ -106,7 +111,7 @@ async def create_new_customer(
         if user:
             return user
         else:
-            raise HTTPException(status_code=400, detail="Ошибка при формировании ответа")
+            raise HTTPException(status_code=400, detail="Ошибка создания Заказчика")
 
 
 @router.post("/executors/create", status_code=status.HTTP_201_CREATED, response_model=ExecutorUserResponse,
@@ -115,8 +120,16 @@ async def create_new_executor(
         executor_data: CreateExecutorInput,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-    response = await users_service.create_executor(executor_data, session)
-    return response
+    user = auth_service.get_user_by_username(executor_data.username, session)
+    if user:
+        raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
+
+    executor = await users_service.create_executor(executor_data, session)
+
+    if executor:
+        return executor
+    else:
+        raise HTTPException(status_code=400, detail="Ошибка создания Исполнителя")
 
 
 @router.delete("/block/{user_id}", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(validate_admin_access)])

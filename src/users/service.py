@@ -2,10 +2,10 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_, select, delete
+from sqlalchemy import and_, func, or_, select, delete, desc
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, aliased, joinedload
+from sqlalchemy.orm import selectinload
 
 from src.models import Company, CompanyContacts, User, Roles
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
@@ -62,6 +62,7 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
         select(User.id, Company.name, Company.address)
         .join(Company)
         .where(base_condition, User.is_active)
+        .order_by(desc(User.created_at))
         .offset(offset)
         .limit(limit)
     )
@@ -110,6 +111,7 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
     select_query = (
         select(User.id, User.name, User.phone, User.username)
         .where(base_condition, User.is_active)
+        .order_by(desc(User.created_at))
         .offset(offset)
         .limit(limit)
     )
@@ -134,21 +136,31 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
 
 
 async def create_executor(executor_data: CreateExecutorInput, session: AsyncSession) -> dict[str, Any] | None:
-    executor = User(
-        username=executor_data.username,
-        password=executor_data.password,
-        is_active=True,
-        is_executor=True,
-        name=executor_data.name,
-        phone=executor_data.phone,
-        role=Roles.EXECUTOR
-    )
+    try:
+        executor = User(
+            username=executor_data.username,
+            password=executor_data.password,
+            is_active=True,
+            is_executor=True,
+            name=executor_data.name,
+            phone=executor_data.phone,
+            role=Roles.EXECUTOR
+        )
 
-    session.add(executor)
-    await session.commit()
-    await session.refresh(executor)
+        session.add(executor)
+        await session.commit()
+        await session.refresh(executor)
 
-    return executor
+        return executor
+
+    except Exception as e:
+        # Обработка ошибок
+        print(f"Error creating executor: {e}")
+        await session.rollback()
+        return None
+    finally:
+        # Не забудьте закрыть сессию после выполнения операций
+        await session.close()
 
 
 async def create_customer(customer_data: CreateCustomerInput, session: AsyncSession) -> dict[str, Any] | None:
@@ -213,8 +225,7 @@ async def block_user(user_id: int, session: AsyncSession) -> bool:
     return False
 
 
-async def edit_credentials(user_id: int, user_data: EditUserCredentials, session: AsyncSession) -> dict[
-                                                                                                       str, Any] | None:
+async def edit_credentials(user_id: int, user_data: EditUserCredentials, session: AsyncSession) -> dict[str, Any] | None:
     user = await get_user_profile_by_id(user_id, session)
 
     if user:
