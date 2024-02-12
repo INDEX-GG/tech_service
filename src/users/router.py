@@ -101,7 +101,7 @@ async def create_new_customer(
 
     user = auth_service.get_user_by_username(customer_data.username, session)
     if user:
-        raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
+        raise UsernameTaken()
 
     customer = await users_service.create_customer(customer_data, session)
 
@@ -122,7 +122,7 @@ async def create_new_executor(
 ) -> dict[str, Any]:
     user = auth_service.get_user_by_username(executor_data.username, session)
     if user:
-        raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
+        raise UsernameTaken()
 
     executor = await users_service.create_executor(executor_data, session)
 
