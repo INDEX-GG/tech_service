@@ -68,7 +68,7 @@ async def get_executor_account(
 
 @router.get("/customers/all", response_model=CustomersListPaginated, dependencies=[Depends(validate_admin_access)])
 async def get_customers_list(
-        search: str = Query(None, min_length=2),
+        search: str = Query(None),
         page: int = 1,
         limit: int = Query(default=25, lte=50),
         session: AsyncSession = Depends(get_async_session)
@@ -81,7 +81,7 @@ async def get_customers_list(
 
 @router.get("/executors/all", response_model=ExecutorsListPaginated, dependencies=[Depends(validate_admin_access)])
 async def get_executors_list(
-        search: str = Query(None, min_length=2),
+        search: str = Query(None),
         page: int = 1,
         limit: int = Query(default=25, lte=50),
         session: AsyncSession = Depends(get_async_session)
