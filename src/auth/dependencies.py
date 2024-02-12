@@ -8,17 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import service
 from src.auth.exceptions import RefreshTokenNotValid, UsernameTaken
 from src.auth.schemas import AuthUser
-from src.database import get_async_session
+from src.database import get_async_session, engine
 from src.users.service import get_user_profile_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v2/auth/tokens", auto_error=False)
 
 
 async def valid_user_create(user: AuthUser) -> AuthUser:
-    if await service.get_user_by_username(user.username):
-        raise UsernameTaken()
+    async with AsyncSession(engine) as session:
+        if await service.get_user_by_username(user.username, session):
+            raise UsernameTaken()
 
-    return user
+        return user
 
 
 async def valid_refresh_token(
