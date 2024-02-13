@@ -2,27 +2,28 @@ import uuid
 from datetime import datetime
 from typing import Any, List
 import aiofiles
-from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Path
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data
 from src.database import get_async_session
-from src.models import User, OwnerTypes, ServiceStatus
-from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput
+from src.models import User, OwnerTypes, ServiceStatus, Roles
+from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
+    CompaniesListPaginated, ServicesListPaginated
 from src.services import service as services
 from src.services import utils as service_utils
 
 router = APIRouter()
 
 
-@router.get("/{service_id}", response_model=ServiceResponse, dependencies=[Depends(parse_jwt_user_data)])
+@router.get("/get/{service_id}", response_model=ServiceResponse)
 async def get_service_card(
         service_id: uuid.UUID,
-        session: AsyncSession = Depends(get_async_session)
+        session: AsyncSession = Depends(get_async_session),
+        current_user: User = Depends(parse_jwt_user_data)
 ):
-
-    service = await services.get_service_card_by_id(service_id, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role, session)
     return service
 
 
@@ -43,8 +44,8 @@ async def create_new_service_by_admin(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
 
-    if not video_file and not image_files:
-        raise HTTPException(status_code=400, detail="You must upload at least one file")
+    # if not video_file and not image_files:
+    #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
     count_images = len(image_files) if image_files else 0
     count_videos = 1 if video_file else 0
@@ -95,8 +96,9 @@ async def create_new_service(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ) -> dict[str, Any]:
-    if not video_file and not image_files:
-        raise HTTPException(status_code=400, detail="You must upload at least one file")
+
+    # if not video_file and not image_files:
+    #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
     count_images = len(image_files) if image_files else 0
     count_videos = 1 if video_file else 0
@@ -141,7 +143,7 @@ async def assign_executor(
     attached_service = await services.assign_executor_to_service(assign_data, session)
 
     if not attached_service:
-        raise HTTPException(status_code=400, detail="Ошибка выдачи заявки")
+        raise HTTPException(status_code=400, detail="Ошибка назначения заявки")
 
     return attached_service
 
@@ -158,6 +160,9 @@ async def mark_service_verifying_by_executor(
         raise HTTPException(status_code=400, detail="Permission denied")
 
     service_executor_id, service_status = await services.get_service_executor_id(service_id, session)
+
+    if not service_executor_id:
+        raise HTTPException(status_code=400, detail="У заявки должен быть назначен исполнитель")
 
     if not current_user.is_admin:
         if int(current_user.user_id) != int(service_executor_id):
@@ -203,6 +208,83 @@ async def mark_service_verifying_by_executor(
         "detail": "Заявка успешно отправлена на контроль качества"
     }
     return response
+
+
+@router.post("/close/{service_id}", status_code=status.HTTP_200_OK, response_model=ServiceResponse, dependencies=[Depends(validate_admin_access)])
+async def close_service(
+        service_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+
+    closed_service = await services.make_service_closed(service_id, session)
+
+    if not closed_service:
+        raise HTTPException(status_code=400, detail="Ошибка закрытия заявки")
+
+    return closed_service
+
+
+@router.get("/admin/all", status_code=status.HTTP_200_OK, response_model=CompaniesListPaginated, dependencies=[Depends(validate_admin_access)])
+async def get_all_companies_by_admin(
+        page: int = 1,
+        limit: int = Query(default=15, lte=50),
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+
+    companies_list, total = await services.get_all_companies_with_services(page, limit, session)
+
+    response = {
+        "total": total,
+        "items": companies_list
+    }
+
+    return response
+
+
+@router.get("/admin/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated, dependencies=[Depends(validate_admin_access)])
+async def get_all_services_by_admin_status_new(
+        company_id: uuid.UUID,
+        value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
+        sort: str = "date_desc",
+        page: int = 1,
+        limit: int = Query(default=15, lte=50),
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    """
+    Получение списка заявок по статусу с пагинацией для администратора
+
+    Параметры:
+    - value: Статус заявки (new|working|verifying|closed).
+    - sort: Сортировка.
+    - page: Страница.
+    - limit: Кол-во заявок на одной странице.
+    - session (AsyncSession): Сессия SQLAlchemy для взаимодействия с базой данных.
+
+    Возвращает:
+    - CompaniesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
+    """
+
+    status_mapping = {
+        'new': ServiceStatus.NEW,
+        'working': ServiceStatus.WORKING,
+        'verifying': ServiceStatus.VERIFYING,
+        'closed': ServiceStatus.CLOSED,
+    }
+
+    service_status = status_mapping.get(value, None)
+
+    if service_status is None:
+        raise HTTPException(status_code=400, detail="Статус не существует")
+
+    services_list, total = await services.get_services_by_status_as_admin(service_status, company_id, sort, page, limit, session)
+
+    response = {
+        "total": total,
+        "items": services_list
+    }
+
+    return response
+
 
 
 # @router.get("/get_video")

@@ -18,10 +18,12 @@ from sqlalchemy import (
     Select,
     String,
     Update,
-    func,
+    func, select,
 )
 from sqlalchemy import Enum as EnumSQL
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from src.database import Base, engine
@@ -76,15 +78,20 @@ class Service(Base):
     id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     customer_id = Column("customer_id", Integer, ForeignKey("public.users.id"), nullable=False, index=True)
     executor_id = Column("executor_id", Integer, ForeignKey("public.users.id"), index=True)
+    company_id = Column("company_id", UUID(as_uuid=True), ForeignKey("public.company.id"), index=True)
     title = Column("title", String, nullable=False)
     description = Column("description", String)
     material_availability = Column("material_availability", Boolean, server_default="false", nullable=False)
     emergency = Column("emergency", Boolean, server_default="false", nullable=False)
     custom_position = Column("custom_position", Boolean, server_default="false", nullable=False)
+
+    viewed_admin = Column("viewed_admin", Boolean, server_default="false", nullable=False)
+    viewed_customer = Column("viewed_customer", Boolean, server_default="false", nullable=False)
+    viewed_executor = Column("viewed_executor", Boolean, server_default="false", nullable=False)
+
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
-    deadline_at = Column("deadline_at", DateTime, server_default=func.now(), nullable=False)
-
+    deadline_at = Column("deadline_at", DateTime, server_default=None, nullable=True)
     comment = Column("comment", String)
     status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.NEW)
     media_files = relationship("MediaFiles", back_populates="service", cascade="all, delete-orphan")
@@ -93,6 +100,7 @@ class Service(Base):
                             uselist=False)
     executor = relationship("User", foreign_keys=[executor_id], back_populates="executor_services", single_parent=True,
                             uselist=False)
+    company = relationship("Company", back_populates="services", single_parent=True, uselist=False)
 
 
 class User(Base):
@@ -153,8 +161,15 @@ class Company(Base):
     opening_time = Column("opening_time", String, nullable=True)
     closing_time = Column("closing_time", String, nullable=True)
     only_weekdays = Column("only_weekdays", Boolean, server_default="false", nullable=False)
+    # mark = Column("mark", Boolean, server_default="false", nullable=False)  # True if only company have NEW services
+    updated_at = Column("updated_at", DateTime)
     contacts = relationship("CompanyContacts", back_populates="company")
     customer = relationship("User", back_populates="customer_company", single_parent=True)
+    services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
+
+    @hybrid_property
+    def new_services_count(self):
+        return sum(1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
 
 
 class CompanyContacts(Base):

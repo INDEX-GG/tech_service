@@ -27,8 +27,7 @@ class ServiceCreateInput(CustomModel):
     description: str | None
     material_availability: bool
     emergency: bool
-    deadline_at: datetime
-    # media_files:
+    deadline_at: datetime | None
 
 
 class MediaFilesResponse(BaseModel):
@@ -58,8 +57,50 @@ class ServiceResponse(CustomModel):
 class ServiceAssignInput(CustomModel):
     service_id: UUID
     executor_id: int
+    deadline_at: datetime | None
 
 
 class VideoAndImageInput(BaseModel):
     video_file: Optional[UploadFile] = File(None)
     image_files: Optional[List[UploadFile]] = File(None)
+
+
+class BadgeServicesResponse(CustomModel):
+    mark: bool
+    counter: int
+
+
+class TabsServicesResponse(CustomModel):
+    new: int
+    working: int
+    verifying: int
+    closed: int
+
+
+class CompaniesListedResponse(CustomModel):
+    id: UUID
+    name: str
+    address: str
+    badge: BadgeServicesResponse
+    tabs: TabsServicesResponse
+
+
+class CompaniesListPaginated(CustomModel):
+    total: int
+    items: List[CompaniesListedResponse]
+
+
+class ServiceListedResponse(CustomModel):
+    id: UUID
+    title: str
+    viewed_admin: bool
+    emergency: bool
+    custom_position: bool
+    status: ServiceStatus
+    created_at: datetime
+    deadline_at: datetime | None
+
+
+class ServicesListPaginated(CustomModel):
+    total: int
+    items: List[ServiceListedResponse]

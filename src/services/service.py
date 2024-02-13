@@ -1,13 +1,14 @@
 import datetime
+import json
 from typing import Any, List
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, and_, desc, exists, case, asc
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
-from src.models import Service, ServiceStatus, User, Company, OwnerTypes, MediaFiles
+from src.models import Service, ServiceStatus, User, Company, OwnerTypes, MediaFiles, Roles
 from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput
 from src.users.service import get_user_profile_by_id, get_user_by_role
 from src.services import utils as service_utils
@@ -25,14 +26,18 @@ async def create_new_service_by_admin(
         if customer_id == service_data.executor_id:
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
 
+        customer = await get_user_profile_by_id(customer_id, session)
+
         new_service = Service(
             customer_id=customer_id,
             executor_id=service_data.executor_id,
+            company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
             material_availability=service_data.material_availability,
             emergency=service_data.emergency,
             custom_position=service_data.custom_position,
+            viewed_admin=True,
             deadline_at=service_data.deadline_at,
             comment=service_data.comment,
             status=ServiceStatus.NEW
@@ -42,7 +47,6 @@ async def create_new_service_by_admin(
         await session.commit()
         await session.refresh(new_service)
 
-        customer = await get_user_profile_by_id(customer_id, session)
         new_service.customer = customer
 
         if service_data.executor_id:
@@ -84,12 +88,16 @@ async def create_new_service_by_customer(
         session: AsyncSession
 ) -> dict[str, Any] | None:
     try:
+        customer = await get_user_profile_by_id(customer_id, session)
+
         new_service = Service(
             customer_id=customer_id,
+            company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
             material_availability=service_data.material_availability,
             emergency=service_data.emergency,
+            viewed_customer=True,
             deadline_at=service_data.deadline_at,
             status=ServiceStatus.NEW
         )
@@ -98,7 +106,6 @@ async def create_new_service_by_customer(
         await session.commit()
         await session.refresh(new_service)
 
-        customer = await get_user_profile_by_id(customer_id, session)
         new_service.customer = customer
 
         owner_type = OwnerTypes.CUSTOMER
@@ -143,6 +150,10 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
 
         service.executor_id = assign_data.executor_id
         service.status = ServiceStatus.WORKING
+        if not service.viewed_admin:
+            service.viewed_admin = True
+        service.viewed_customer = False
+        service.deadline_at = assign_data.deadline_at
         await session.commit()
         await session.refresh(service)
 
@@ -182,7 +193,16 @@ async def get_service_executor_id(service_id: UUID, session: AsyncSession):
 async def mark_service_verifying(service_id: UUID, session: AsyncSession):
     try:
         # Update the Service status to VERIFYING
-        update_query = update(Service).where(Service.id == service_id).values(status=ServiceStatus.VERIFYING)
+        update_query = (
+            update(Service)
+            .where(Service.id == service_id)
+            .values(
+                status=ServiceStatus.VERIFYING,
+                viewed_admin=False,
+                viewed_customer=False,
+                viewed_executor=True,
+            )
+        )
         await session.execute(update_query)
 
         # Commit the changes to the database
@@ -200,7 +220,7 @@ async def mark_service_verifying(service_id: UUID, session: AsyncSession):
         await session.close()
 
 
-async def get_service_card_by_id(service_id: UUID, session: AsyncSession):
+async def get_service_card_by_id(service_id: UUID, role: Roles, session: AsyncSession):
     select_query = (select(Service)
                     .options(
                     selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
@@ -210,7 +230,158 @@ async def get_service_card_by_id(service_id: UUID, session: AsyncSession):
                     )
     model = await session.execute(select_query)
     service = model.scalar_one_or_none()
+
+    if role == Roles.ADMIN:
+        if not service.viewed_admin:
+            service.viewed_admin = True
+            await session.commit()
+            await session.refresh(service)
+    elif role == Roles.CUSTOMER:
+        if not service.viewed_customer:
+            service.viewed_customer = True
+            await session.commit()
+            await session.refresh(service)
+    elif role == Roles.EXECUTOR:
+        if not service.viewed_executor:
+            service.viewed_executor = True
+            await session.commit()
+            await session.refresh(service)
+
     return service
+
+
+async def make_service_closed(service_id: UUID, session: AsyncSession):
+    try:
+        select_query = (select(Service)
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
+                        .options(selectinload(Service.executor))
+                        .options(selectinload(Service.media_files))
+                        .where(Service.id == service_id)
+                        )
+        model = await session.execute(select_query)
+        service = model.scalar_one_or_none()
+
+        service.status = ServiceStatus.CLOSED
+        if not service.viewed_admin:
+            service.viewed_admin = True
+        service.viewed_customer = False
+        service.viewed_executor = False
+
+        await session.commit()
+        await session.refresh(service)
+
+        return service
+
+    except Exception as e:
+        # Обработка ошибок
+        print(f"Error assigning service to executor: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=f"Ошибка закрытия заявки")
+    finally:
+        # закрыть сессию после выполнения операций
+        await session.close()
+
+
+async def get_all_companies_with_services(page: int, limit: int, session: AsyncSession):
+    offset = (page - 1) * limit
+
+    count_query = (
+        select(func.count())
+        .select_from(Company)
+        .where(exists().where(Service.company_id == Company.id))
+    )
+
+    total_records = await session.execute(count_query)
+    total = total_records.scalar()
+
+    # query = (
+    #     select(Company, func.bool_or(Service.viewed_admin == False).label("marked"))
+    #     .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
+    #     .options(selectinload(Company.services))
+    #     .group_by(Company.id)  # Группируем по компании
+    #     .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
+    #     .offset(offset)
+    #     .limit(limit)
+    # )
+
+    query = (
+        select(
+            Company,
+            func.bool_or(Service.viewed_admin == False).label("marked"),
+            func.sum(case((Service.status == ServiceStatus.NEW, 1), else_=0)).label("new"),
+            func.sum(case((Service.status == ServiceStatus.WORKING, 1), else_=0)).label("working"),
+            func.sum(case((Service.status == ServiceStatus.VERIFYING, 1), else_=0)).label("verifying"),
+            func.sum(case((Service.status == ServiceStatus.CLOSED, 1), else_=0)).label("closed"),
+        )
+        .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
+        .options(selectinload(Company.services))
+        .group_by(Company.id)  # Группируем по компании
+        .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
+        .offset(offset)
+        .limit(limit)
+    )
+
+    # Выполняем запрос
+    result = await session.execute(query)
+
+    # Получаем все объекты Company из результата
+    companies = result.all()
+
+    response = []
+
+    for company_with_mark in companies:
+        company = company_with_mark[0]
+        marked = company_with_mark.marked
+
+        company_object = {
+            "id": company.id,
+            "name": company.name,
+            "address": company.address,
+            "badge": {
+                "mark": marked,
+                "counter": company.new_services_count
+            },
+            "tabs": {
+                "new": company_with_mark.new,
+                "working": company_with_mark.working,
+                "verifying": company_with_mark.verifying,
+                "closed": company_with_mark.closed,
+            }
+        }
+        response.append(company_object)
+
+    # Close the session
+    await session.close()
+    return response, total
+
+
+async def get_services_by_status_as_admin(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int, session: AsyncSession):
+    offset = (page - 1) * limit
+
+    count_query = (
+        select(func.count())
+        .select_from(Service)
+        .where(Service.company_id == company_id, Service.status == service_status)
+    )
+    total_records = await session.execute(count_query)
+    total = total_records.scalar()
+
+    query = (
+        select(Service)
+        .where(Service.company_id == company_id, Service.status == service_status)
+        .order_by(
+            asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
+        )  # Сортируем по дате
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await session.execute(query)
+
+    # Получаем все объекты Company из результата
+    services = result.scalars().all()
+
+    return services, total
+
 
 # async def upload_video_and_image(
 #         service_id: uuid.UUID = Form(...),

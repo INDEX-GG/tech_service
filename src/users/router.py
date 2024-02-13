@@ -99,7 +99,7 @@ async def create_new_customer(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
 
-    user = auth_service.get_user_by_username(customer_data.username, session)
+    user = await auth_service.get_user_by_username(customer_data.username, session)
     if user:
         raise UsernameTaken()
 
@@ -120,7 +120,8 @@ async def create_new_executor(
         executor_data: CreateExecutorInput,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-    user = auth_service.get_user_by_username(executor_data.username, session)
+    user = await auth_service.get_user_by_username(executor_data.username, session)
+    print(user)
     if user:
         raise UsernameTaken()
 
