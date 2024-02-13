@@ -37,16 +37,20 @@ class CustomerUserResponse(CustomModel):
     id: int
     username: str
     password: str
-    is_active: bool
-    name: str | None
-    phone: str | None
+    # is_active: bool
+    # name: str | None
+    # phone: str | None
     customer_company: UserCompany | None
+
+
+class CustomerShortCompany(CustomModel):
+    name: str
+    address: str
 
 
 class CustomersList(CustomModel):
     id: int
-    name: str
-    address: str
+    customer_company: CustomerShortCompany | None
 
 
 class ExecutorsList(CustomModel):
