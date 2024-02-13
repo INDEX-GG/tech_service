@@ -74,8 +74,10 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
     for user_id, company_name, company_address in response:
         response_data.append({
             "id": user_id,
-            "name": company_name,
-            "address": company_address
+            "customer_company": {
+                "name": company_name,
+                "address": company_address
+            }
         })
 
     response = {
