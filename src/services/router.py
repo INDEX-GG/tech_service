@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File,
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.auth.exceptions import AuthorizationFailed
 from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus, Roles
@@ -156,8 +157,8 @@ async def mark_service_verifying_by_executor(
         current_user: User = Depends(parse_jwt_user_data),
         session: AsyncSession = Depends(get_async_session)
 ):
-    if not current_user.is_executor or not current_user.is_admin:
-        raise HTTPException(status_code=400, detail="Permission denied")
+    if not current_user.is_executor and not current_user.is_admin:
+        raise AuthorizationFailed()
 
     service_executor_id, service_status = await services.get_service_executor_id(service_id, session)
 
@@ -166,7 +167,7 @@ async def mark_service_verifying_by_executor(
 
     if not current_user.is_admin:
         if int(current_user.user_id) != int(service_executor_id):
-            raise HTTPException(status_code=400, detail="You must upload at least one file")
+            raise AuthorizationFailed()
 
     if service_status != ServiceStatus.WORKING:
         raise HTTPException(status_code=400, detail="Для отправления заявки на контроль качества, заявка должна иметь статус 'В работе'")
@@ -242,7 +243,7 @@ async def get_all_companies_by_admin(
 
 
 @router.get("/admin/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated, dependencies=[Depends(validate_admin_access)])
-async def get_all_services_by_admin_status_new(
+async def get_all_company_services_by_status_as_admin(
         company_id: uuid.UUID,
         value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
         sort: str = "date_desc",
@@ -261,7 +262,7 @@ async def get_all_services_by_admin_status_new(
     - session (AsyncSession): Сессия SQLAlchemy для взаимодействия с базой данных.
 
     Возвращает:
-    - CompaniesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
+    - ServicesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
     """
 
     status_mapping = {
@@ -285,6 +286,55 @@ async def get_all_services_by_admin_status_new(
 
     return response
 
+
+@router.get("/executor/status/{value}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
+async def get_all_executors_services_by_status(
+        value: str = Path(..., title="Status", description="Статус заявки", regex="^(working|verifying|closed)$"),
+        sort: str = "date_desc",
+        page: int = 1,
+        limit: int = Query(default=15, lte=50),
+        current_user: User = Depends(parse_jwt_user_data),
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    """
+    Получение списка заявок по статусу с пагинацией для администратора
+
+    Параметры:
+    - value: Статус заявки (working|verifying|closed).
+    - sort: Сортировка.
+    - page: Страница.
+    - limit: Кол-во заявок на одной странице.
+    - current_user: Получение данных авторизованного пользователя.
+    - session (AsyncSession): Сессия SQLAlchemy для взаимодействия с базой данных.
+
+    Возвращает:
+    - ServicesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
+    """
+
+    if not current_user.is_executor and not current_user.is_admin:
+        raise AuthorizationFailed()
+
+    status_mapping = {
+        'new': ServiceStatus.NEW,
+        'working': ServiceStatus.WORKING,
+        'verifying': ServiceStatus.VERIFYING,
+        'closed': ServiceStatus.CLOSED,
+    }
+
+    service_status = status_mapping.get(value, None)
+
+    if service_status is None:
+        raise HTTPException(status_code=400, detail="Статус не существует")
+
+    executor_id = int(current_user.user_id)
+    services_list, total = await services.get_executor_services_by_status(service_status, executor_id, sort, page, limit, session)
+
+    response = {
+        "total": total,
+        "items": services_list
+    }
+
+    return response
 
 
 # @router.get("/get_video")
