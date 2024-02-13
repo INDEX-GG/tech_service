@@ -171,6 +171,10 @@ class Company(Base):
     def new_services_count(self):
         return sum(1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
 
+    def new_services_count_executor(self, executor_id):
+        return sum(1 for service in self.services if (
+                    service.status == ServiceStatus.WORKING and service.viewed_executor == False and service.executor_id == executor_id))
+
 
 class CompanyContacts(Base):
     """Модель заявок"""

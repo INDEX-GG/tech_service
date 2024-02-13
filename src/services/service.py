@@ -282,49 +282,74 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
         await session.close()
 
 
-async def get_all_companies_with_services(page: int, limit: int, session: AsyncSession):
+async def get_all_companies_with_services_info(page: int, limit: int, session: AsyncSession, executor_id: int = None):
     offset = (page - 1) * limit
 
-    count_query = (
-        select(func.count())
-        .select_from(Company)
-        .where(exists().where(Service.company_id == Company.id))
-    )
+    #######################################################################
+    if executor_id:
+        count_query = (
+            select(func.count())
+            .select_from(Company)
+            .where(exists().where(
+                and_(
+                    Service.company_id == Company.id,
+                    Service.executor_id == executor_id
+                )
+            ))
+        )
 
+        query = (
+            select(
+                Company,
+                func.bool_or(Service.viewed_executor == False).label("marked"),
+                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id), 1),
+                              else_=0)).label("working"),
+                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id), 1),
+                              else_=0)).label("verifying"),
+                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id), 1),
+                              else_=0)).label("closed"),
+            )
+            .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
+            .where(and_(
+                Service.executor_id == executor_id
+            ))
+            .options(selectinload(Company.services))
+            .group_by(Company.id)  # Группируем по компании
+            .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
+            .offset(offset)
+            .limit(limit)
+        )
+
+    else:
+        count_query = (
+            select(func.count())
+            .select_from(Company)
+            .where(exists().where(Service.company_id == Company.id))
+        )
+
+        query = (
+            select(
+                Company,
+                func.bool_or(Service.viewed_admin == False).label("marked"),
+                func.sum(case((Service.status == ServiceStatus.NEW, 1), else_=0)).label("new"),
+                func.sum(case((Service.status == ServiceStatus.WORKING, 1), else_=0)).label("working"),
+                func.sum(case((Service.status == ServiceStatus.VERIFYING, 1), else_=0)).label("verifying"),
+                func.sum(case((Service.status == ServiceStatus.CLOSED, 1), else_=0)).label("closed"),
+            )
+            .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
+            .options(selectinload(Company.services))
+            .group_by(Company.id)  # Группируем по компании
+            .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
+            .offset(offset)
+            .limit(limit)
+        )
+
+    #######################################################################
     total_records = await session.execute(count_query)
     total = total_records.scalar()
 
-    # query = (
-    #     select(Company, func.bool_or(Service.viewed_admin == False).label("marked"))
-    #     .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
-    #     .options(selectinload(Company.services))
-    #     .group_by(Company.id)  # Группируем по компании
-    #     .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
-    #     .offset(offset)
-    #     .limit(limit)
-    # )
-
-    query = (
-        select(
-            Company,
-            func.bool_or(Service.viewed_admin == False).label("marked"),
-            func.sum(case((Service.status == ServiceStatus.NEW, 1), else_=0)).label("new"),
-            func.sum(case((Service.status == ServiceStatus.WORKING, 1), else_=0)).label("working"),
-            func.sum(case((Service.status == ServiceStatus.VERIFYING, 1), else_=0)).label("verifying"),
-            func.sum(case((Service.status == ServiceStatus.CLOSED, 1), else_=0)).label("closed"),
-        )
-        .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
-        .options(selectinload(Company.services))
-        .group_by(Company.id)  # Группируем по компании
-        .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
-        .offset(offset)
-        .limit(limit)
-    )
-
-    # Выполняем запрос
+    # Выполняем запрос и Получаем все объекты Company из результата
     result = await session.execute(query)
-
-    # Получаем все объекты Company из результата
     companies = result.all()
 
     response = []
@@ -339,10 +364,10 @@ async def get_all_companies_with_services(page: int, limit: int, session: AsyncS
             "address": company.address,
             "badge": {
                 "mark": marked,
-                "counter": company.new_services_count
+                "counter": company.new_services_count_executor(executor_id) if executor_id else company.new_services_count
             },
             "tabs": {
-                "new": company_with_mark.new,
+                "new": 0 if executor_id else company_with_mark.new,
                 "working": company_with_mark.working,
                 "verifying": company_with_mark.verifying,
                 "closed": company_with_mark.closed,
@@ -355,26 +380,46 @@ async def get_all_companies_with_services(page: int, limit: int, session: AsyncS
     return response, total
 
 
-async def get_services_by_status_as_admin(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int, session: AsyncSession):
+async def get_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int, session: AsyncSession, executor_id: int = None):
     offset = (page - 1) * limit
 
-    count_query = (
-        select(func.count())
-        .select_from(Service)
-        .where(Service.company_id == company_id, Service.status == service_status)
-    )
+    if executor_id:
+        count_query = (
+            select(func.count())
+            .select_from(Service)
+            .where(Service.company_id == company_id, Service.status == service_status, Service.executor_id == executor_id)
+        )
+
+        query = (
+            select(Service)
+            .where(Service.company_id == company_id, Service.status == service_status, Service.executor_id == executor_id)
+            .order_by(
+                asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
+            )  # Сортируем по дате
+            .offset(offset)
+            .limit(limit)
+        )
+
+    else:
+        count_query = (
+            select(func.count())
+            .select_from(Service)
+            .where(Service.company_id == company_id, Service.status == service_status)
+        )
+
+        query = (
+            select(Service)
+            .where(Service.company_id == company_id, Service.status == service_status)
+            .order_by(
+                asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
+            )  # Сортируем по дате
+            .offset(offset)
+            .limit(limit)
+        )
+
     total_records = await session.execute(count_query)
     total = total_records.scalar()
 
-    query = (
-        select(Service)
-        .where(Service.company_id == company_id, Service.status == service_status)
-        .order_by(
-            asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
-        )  # Сортируем по дате
-        .offset(offset)
-        .limit(limit)
-    )
     result = await session.execute(query)
 
     # Получаем все объекты Company из результата

@@ -245,7 +245,7 @@ async def edit_company_data(
 
 @router.post("/contacts_create", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
              dependencies=[Depends(validate_customer_access)])
-async def create_new_service(
+async def create_company_contact_by_customer(
         contact_data: EditCustomerContacts,
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
@@ -262,7 +262,7 @@ async def create_new_service(
 
 @router.post("/contacts_create/{customer_id}", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
              dependencies=[Depends(validate_admin_access)])
-async def create_new_service(
+async def create_company_contact_by_admin(
         customer_id: int,
         contact_data: EditCustomerContacts,
         session: AsyncSession = Depends(get_async_session)
@@ -290,6 +290,7 @@ async def delete_company_contacts(
     await users_service.delete_customer_contact(contact_id, session, customer_id)
 
 
+# TODO: contacts edit
 # contacts edit by user
 # contacts edit by admin
 
