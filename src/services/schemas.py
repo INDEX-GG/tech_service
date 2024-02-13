@@ -93,9 +93,11 @@ class CompaniesListPaginated(CustomModel):
 class ServiceListedResponse(CustomModel):
     id: UUID
     title: str
-    viewed_admin: bool
     emergency: bool
     custom_position: bool
+    viewed_admin: bool
+    viewed_customer: bool
+    viewed_executor: bool
     status: ServiceStatus
     created_at: datetime
     deadline_at: datetime | None
@@ -104,3 +106,10 @@ class ServiceListedResponse(CustomModel):
 class ServicesListPaginated(CustomModel):
     total: int
     items: List[ServiceListedResponse]
+
+
+class CustomerServicesListPaginated(CustomModel):
+    total: int
+    counter: int
+    items: List[ServiceListedResponse]
+

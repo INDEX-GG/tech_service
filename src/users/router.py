@@ -243,7 +243,7 @@ async def edit_company_data(
         raise HTTPException(status_code=404, detail="Компания не найдена")
 
 
-@router.post("/contacts_create", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
+@router.post("/contacts/create", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
              dependencies=[Depends(validate_customer_access)])
 async def create_company_contact_by_customer(
         contact_data: EditCustomerContacts,
@@ -260,7 +260,7 @@ async def create_company_contact_by_customer(
     return contact
 
 
-@router.post("/contacts_create/{customer_id}", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
+@router.post("/contacts/create/{customer_id}", status_code=status.HTTP_201_CREATED, response_model=CompanyContacts,
              dependencies=[Depends(validate_admin_access)])
 async def create_company_contact_by_admin(
         customer_id: int,
@@ -276,7 +276,7 @@ async def create_company_contact_by_admin(
     return contact
 
 
-@router.delete("/contacts_delete/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/contacts/delete/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_company_contacts(
         contact_id: UUID,
         session: AsyncSession = Depends(get_async_session),
@@ -290,8 +290,17 @@ async def delete_company_contacts(
     await users_service.delete_customer_contact(contact_id, session, customer_id)
 
 
-# TODO: contacts edit
-# contacts edit by user
-# contacts edit by admin
+@router.patch("/contacts/edit/{contact_id}", status_code=status.HTTP_202_ACCEPTED)
+async def edit_company_contacts(
+        contact_id: UUID,
+        contact_data: EditCustomerContacts,
+        session: AsyncSession = Depends(get_async_session),
+        current_user: JWTData = Depends(parse_jwt_user_data)
+) -> None:
 
+    if not any([current_user.is_admin, current_user.is_customer]):
+        raise AuthorizationFailed()
 
+    customer_id = int(current_user.user_id) if current_user.is_customer else None
+    response = await users_service.edit_customer_contact(contact_id, contact_data, session, customer_id)
+    return response

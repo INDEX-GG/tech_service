@@ -2,14 +2,14 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_, select, delete, desc
+from sqlalchemy import and_, func, or_, select, delete, desc, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.models import Company, CompanyContacts, User, Roles
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
-    EditCustomerCompany
+    EditCustomerCompany, EditCustomerContacts
 
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:
@@ -341,4 +341,47 @@ async def delete_customer_contact(contact_id: UUID, session: AsyncSession, custo
         raise HTTPException(status_code=400, detail="Ошибка удаления контактных данных")
 
     finally:
+        await session.close()
+
+
+# Update customer contacts by owner or admin
+async def edit_customer_contact(contact_id: UUID, contact_data: EditCustomerContacts, session: AsyncSession, customer_id: int = None):
+    try:
+        if customer_id:
+            update_query = (
+                update(CompanyContacts)
+                .where(CompanyContacts.id == contact_id)
+                .where(CompanyContacts.company.has(Company.user_id == customer_id))
+                .values(
+                    phone=contact_data.phone,
+                    person=contact_data.person
+                )
+            )
+            await session.execute(update_query)
+            await session.commit()
+
+            return True
+
+        else:
+            update_query = (
+                update(CompanyContacts)
+                .where(CompanyContacts.id == contact_id)
+                .values(
+                    phone=contact_data.phone,
+                    person=contact_data.person
+                )
+            )
+            await session.execute(update_query)
+            await session.commit()
+
+            return True
+
+    except Exception as e:
+        # Handle exceptions appropriately
+        await session.rollback()
+        print(f"Error marking service as verifying: {e}")
+        return False
+
+    finally:
+        # Close the session
         await session.close()

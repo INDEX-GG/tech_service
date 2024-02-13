@@ -11,7 +11,7 @@ from src.auth.jwt import validate_admin_access, validate_customer_access, parse_
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus, Roles
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
-    CompaniesListPaginated, ServicesListPaginated
+    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated
 from src.services import service as services
 from src.services import utils as service_utils
 
@@ -298,6 +298,58 @@ async def get_all_company_services_by_status(
 
     return response
 
+
+# @router.get("/status/{value}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
+@router.get("/customer/status/{value}", status_code=status.HTTP_200_OK, response_model=CustomerServicesListPaginated)
+async def get_all_customer_services_by_status(
+        value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
+        sort: str = "date_desc",
+        page: int = 1,
+        limit: int = Query(default=15, lte=50),
+        current_user: User = Depends(parse_jwt_user_data),
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    """
+    Получение списка заявок по статусу с пагинацией для администратора
+
+    Параметры:
+    - value: Статус заявки (new|working|verifying|closed).
+    - sort: Сортировка.
+    - page: Страница.
+    - limit: Кол-во заявок на одной странице.
+    - session (AsyncSession): Сессия SQLAlchemy для взаимодействия с базой данных.
+
+    Возвращает:
+    - ServicesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
+    """
+
+    if not any([current_user.is_admin, current_user.is_customer]):
+        raise AuthorizationFailed()
+
+    customer_id = int(current_user.user_id) if current_user.is_customer else None
+
+    status_mapping = {
+        'new': ServiceStatus.NEW,
+        'working': ServiceStatus.WORKING,
+        'verifying': ServiceStatus.VERIFYING,
+        'closed': ServiceStatus.CLOSED,
+    }
+    service_status = status_mapping.get(value, None)
+
+    if service_status is None:
+        raise HTTPException(status_code=400, detail="Статус не существует")
+
+    company_id = await services.get_company_id_by_customer(customer_id, session)
+
+    services_list, total, counter = await services.get_customer_services_by_status(service_status, company_id, sort, page, limit, session, customer_id)
+
+    response = {
+        "total": total,
+        "counter": counter,
+        "items": services_list
+    }
+
+    return response
 
 # @router.get("/get_video")
 # async def get_video():

@@ -456,6 +456,52 @@ async def get_executor_services_by_status(service_status: ServiceStatus, executo
     return services, total
 
 
+async def get_company_id_by_customer(customer_id: int, session: AsyncSession):
+    select_query = select(Company.id).where(Company.user_id == customer_id)
+    model = await session.execute(select_query)
+    company_id = model.scalar_one_or_none()
+    print('company_id', company_id)
+    return company_id
+
+
+async def get_customer_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int, session: AsyncSession, customer_id: int):
+    offset = (page - 1) * limit
+
+    count_query = (
+        select(func.count())
+        .select_from(Service)
+        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
+    )
+
+    unviewed_count_query = (
+        select(func.count())
+        .select_from(Service)
+        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id, Service.viewed_customer == False)
+    )
+
+    query = (
+        select(Service)
+        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
+        .order_by(
+            asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
+        )  # Сортируем по дате
+        .offset(offset)
+        .limit(limit)
+    )
+
+    total_records = await session.execute(count_query)
+    total = total_records.scalar()
+
+    total_records_unviewed = await session.execute(unviewed_count_query)
+    total_unviewed = total_records_unviewed.scalar()
+
+    result = await session.execute(query)
+
+    # Получаем все объекты Company из результата
+    services = result.scalars().all()
+
+    return services, total, total_unviewed
+
 
 # async def upload_video_and_image(
 #         service_id: uuid.UUID = Form(...),
