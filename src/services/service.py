@@ -2,7 +2,8 @@ from typing import Any, List
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select, update, func, and_, desc, exists, case, asc
+from sqlalchemy import select, update, func, and_, desc, exists, case, asc, delete
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -508,3 +509,38 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
     services = result.scalars().all()
 
     return services, total, total_unviewed
+
+
+async def delete_service(service_id: UUID, session: AsyncSession):
+    try:
+        # Load the service with related media_files using selectinload
+        service = await session.execute(
+            select(Service).options(selectinload(Service.media_files)).where(Service.id == service_id)
+        )
+        service = service.scalar()
+
+        if service is None:
+            raise NoResultFound()
+
+        # Delete associated media_files first
+        for media_file in service.media_files:
+            await session.delete(media_file)
+
+        # Now, delete the service
+        await session.delete(service)
+
+        # Commit the changes
+        await session.commit()
+
+        print('Service and associated media files deleted successfully')
+
+    except NoResultFound:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+
+    except Exception as e:
+        print(f"Error deleting service: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка удаления заявки")
+
+    finally:
+        await session.close()

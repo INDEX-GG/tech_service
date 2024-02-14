@@ -42,9 +42,9 @@ class ServiceResponse(CustomModel):
     executor_id: int | None
     title: str
     description: str | None
-    material_availability: bool
-    emergency: bool
-    custom_position: bool
+    material_availability: bool | None
+    emergency: bool | None
+    custom_position: bool | None
     created_at: datetime
     deadline_at: datetime | None
     status: ServiceStatus

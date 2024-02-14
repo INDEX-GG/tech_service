@@ -304,3 +304,17 @@ async def edit_company_contacts(
     customer_id = int(current_user.user_id) if current_user.is_customer else None
     response = await users_service.edit_customer_contact(contact_id, contact_data, session, customer_id)
     return response
+
+
+@router.delete("/me/block", status_code=status.HTTP_204_NO_CONTENT)
+async def block_authorized_user_account(
+        current_user: JWTData = Depends(parse_jwt_user_data),
+        session: AsyncSession = Depends(get_async_session)
+) -> JSONResponse:
+    user_id = current_user.user_id
+    result = await users_service.block_user(user_id, session)
+    if result:
+        return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
+    else:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+

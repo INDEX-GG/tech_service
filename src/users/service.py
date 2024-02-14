@@ -1,3 +1,4 @@
+from datetime import timedelta, datetime
 from typing import Any
 from uuid import UUID
 
@@ -7,7 +8,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Company, CompanyContacts, User, Roles
+from src.models import Company, CompanyContacts, User, Roles, RefreshTokens
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
     EditCustomerCompany, EditCustomerContacts
 
@@ -221,6 +222,12 @@ async def block_user(user_id: int, session: AsyncSession) -> bool:
     if user:
         if user.is_active:
             user.is_active = False
+            update_query = (
+                update(RefreshTokens)
+                .where(RefreshTokens.user_id == user.id)
+                .values(expires_at=datetime.utcnow() - timedelta(days=1))
+            )
+            await session.execute(update_query)
             await session.commit()
             return True
 
@@ -331,7 +338,7 @@ async def delete_customer_contact(contact_id: UUID, session: AsyncSession, custo
         if affected_rows == 0:
             raise NoResultFound()
 
-        await session.execute(delete_query)
+        # await session.execute(delete_query)
         await session.commit()
         print('Contact deleted successfully')
 

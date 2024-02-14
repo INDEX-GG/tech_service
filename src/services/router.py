@@ -87,8 +87,8 @@ async def create_new_service_by_admin(
 async def create_new_service(
         title: str = Form(...),
         description: str = Form(None),
-        material_availability: bool = Form(None),
-        emergency: bool = Form(None),
+        material_availability: bool = Form(...),
+        emergency: bool = Form(...),
         deadline_at: datetime = Form(None),
         video_file: UploadFile = File(None),
         image_files: List[UploadFile] = File(None),
@@ -254,7 +254,7 @@ async def get_all_company_services_by_status(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     """
-    Получение списка заявок по статусу с пагинацией для администратора
+    Получение списка заявок по статусу с пагинацией для администратора и исполнителя
 
     Параметры:
     - value: Статус заявки (new|working|verifying|closed).
@@ -294,7 +294,6 @@ async def get_all_company_services_by_status(
     return response
 
 
-# @router.get("/status/{value}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
 @router.get("/customer/status/{value}", status_code=status.HTTP_200_OK, response_model=CustomerServicesListPaginated)
 async def get_all_customer_services_by_status(
         value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
@@ -305,7 +304,7 @@ async def get_all_customer_services_by_status(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     """
-    Получение списка заявок по статусу с пагинацией для администратора
+    Получение списка заявок по статусу с пагинацией для администратора и заказчика
 
     Параметры:
     - value: Статус заявки (new|working|verifying|closed).
@@ -315,7 +314,7 @@ async def get_all_customer_services_by_status(
     - session (AsyncSession): Сессия SQLAlchemy для взаимодействия с базой данных.
 
     Возвращает:
-    - ServicesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
+    - CustomerServicesListPaginated: Общее кол-во заявок и список заявок на выбранной странице.
     """
 
     if not any([current_user.is_admin, current_user.is_customer]):
@@ -346,3 +345,12 @@ async def get_all_customer_services_by_status(
     }
 
     return response
+
+
+@router.delete("/delete/{service_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(validate_admin_access)])
+async def delete_service_by_id(
+        service_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session)
+):
+    await services.delete_service(service_id, session)
+
