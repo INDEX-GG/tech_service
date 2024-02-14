@@ -1,19 +1,17 @@
 import uuid
 from datetime import datetime
 from typing import Any, List
-import aiofiles
-from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Path
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.exceptions import AuthorizationFailed
 from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data
 from src.database import get_async_session
-from src.models import User, OwnerTypes, ServiceStatus, Roles
+from src.models import User, OwnerTypes, ServiceStatus
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
     CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated
 from src.services import service as services
-from src.services import utils as service_utils
+from src.media import service as media_service
 
 router = APIRouter()
 
@@ -44,7 +42,6 @@ async def create_new_service_by_admin(
         image_files: List[UploadFile] = File(None),
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-
     # if not video_file and not image_files:
     #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
@@ -76,7 +73,8 @@ async def create_new_service_by_admin(
         comment=comment
     )
 
-    new_service = await services.create_new_service_by_admin(service_data.customer_id, service_data, video_file, image_files, session)
+    new_service = await services.create_new_service_by_admin(service_data.customer_id, service_data, video_file,
+                                                             image_files, session)
 
     if not new_service:
         raise HTTPException(status_code=400, detail="Ошибка создания заявки")
@@ -97,7 +95,6 @@ async def create_new_service(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ) -> dict[str, Any]:
-
     # if not video_file and not image_files:
     #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
@@ -126,7 +123,8 @@ async def create_new_service(
     )
 
     customer_id = int(current_user.user_id)
-    new_service = await services.create_new_service_by_customer(customer_id, service_data, video_file, image_files, session)
+    new_service = await services.create_new_service_by_customer(customer_id, service_data, video_file, image_files,
+                                                                session)
 
     if not new_service:
         raise HTTPException(status_code=400, detail="Ошибка создания заявки")
@@ -140,7 +138,6 @@ async def assign_executor(
         assign_data: ServiceAssignInput,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-
     attached_service = await services.assign_executor_to_service(assign_data, session)
 
     if not attached_service:
@@ -157,7 +154,6 @@ async def mark_service_verifying_by_executor(
         current_user: User = Depends(parse_jwt_user_data),
         session: AsyncSession = Depends(get_async_session)
 ):
-
     if not any([current_user.is_admin, current_user.is_executor]):
         raise AuthorizationFailed()
 
@@ -171,7 +167,8 @@ async def mark_service_verifying_by_executor(
             raise AuthorizationFailed()
 
     if service_status != ServiceStatus.WORKING:
-        raise HTTPException(status_code=400, detail="Для отправления заявки на контроль качества, заявка должна иметь статус 'В работе'")
+        raise HTTPException(status_code=400,
+                            detail="Для отправления заявки на контроль качества, заявка должна иметь статус 'В работе'")
 
     if not video_file and not image_files:
         raise HTTPException(status_code=400, detail="You must upload at least one file")
@@ -194,13 +191,11 @@ async def mark_service_verifying_by_executor(
 
     owner_type = OwnerTypes.EXECUTOR
 
-    print(owner_type)
-
     if video_file:
-        await service_utils.save_video(video_file=video_file, service_id=service_id, owner_type=owner_type)
+        await media_service.save_video(video_file=video_file, service_id=service_id, owner_type=owner_type)
 
     if image_files:
-        await service_utils.save_images(image_files=image_files, service_id=service_id, owner_type=owner_type)
+        await media_service.save_images(image_files=image_files, service_id=service_id, owner_type=owner_type)
 
     marked_verifying = await services.mark_service_verifying(service_id, session)
     if not marked_verifying:
@@ -212,12 +207,12 @@ async def mark_service_verifying_by_executor(
     return response
 
 
-@router.post("/close/{service_id}", status_code=status.HTTP_200_OK, response_model=ServiceResponse, dependencies=[Depends(validate_admin_access)])
+@router.post("/close/{service_id}", status_code=status.HTTP_200_OK, response_model=ServiceResponse,
+             dependencies=[Depends(validate_admin_access)])
 async def close_service(
         service_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-
     closed_service = await services.make_service_closed(service_id, session)
 
     if not closed_service:
@@ -233,7 +228,6 @@ async def get_all_companies(
         current_user: User = Depends(parse_jwt_user_data),
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-
     if not any([current_user.is_admin, current_user.is_executor]):
         raise AuthorizationFailed()
 
@@ -289,7 +283,8 @@ async def get_all_company_services_by_status(
     if service_status is None:
         raise HTTPException(status_code=400, detail="Статус не существует")
 
-    services_list, total = await services.get_services_by_status(service_status, company_id, sort, page, limit, session, executor_id)
+    services_list, total = await services.get_services_by_status(service_status, company_id, sort, page, limit, session,
+                                                                 executor_id)
 
     response = {
         "total": total,
@@ -341,7 +336,8 @@ async def get_all_customer_services_by_status(
 
     company_id = await services.get_company_id_by_customer(customer_id, session)
 
-    services_list, total, counter = await services.get_customer_services_by_status(service_status, company_id, sort, page, limit, session, customer_id)
+    services_list, total, counter = await services.get_customer_services_by_status(service_status, company_id, sort,
+                                                                                   page, limit, session, customer_id)
 
     response = {
         "total": total,
@@ -350,27 +346,3 @@ async def get_all_customer_services_by_status(
     }
 
     return response
-
-# @router.get("/get_video")
-# async def get_video():
-#     file_path = "./static/name1.mp4"
-#
-#     async def stream_file():
-#         async with aiofiles.open(file_path, "rb") as f:
-#             while chunk := await f.read(DEFAULT_CHUNK_SIZE):
-#                 yield chunk
-#
-#     return StreamingResponse(stream_file(), media_type="video/mp4")
-
-
-# async def save_file_in_folder(image, road, resolution):
-#     Path(f"./files/{road}").mkdir(parents=True, exist_ok=True)
-#     image.save(f"./files/{road}/{resolution}.webp", format="webp")
-
-
-# async def write_image_road(db: Session, post_id: uuid, image_road: str, order: int):
-#     image_road_object = AdPhotos(url=image_road, ad_id=post_id, id=uuid.uuid4(), order=order)
-#     db.add(image_road_object)
-#     db.commit()
-#     return True
-

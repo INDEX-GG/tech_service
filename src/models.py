@@ -1,9 +1,7 @@
-import json
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -18,11 +16,10 @@ from sqlalchemy import (
     Select,
     String,
     Update,
-    func, select,
+    func
 )
 from sqlalchemy import Enum as EnumSQL
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
@@ -161,7 +158,6 @@ class Company(Base):
     opening_time = Column("opening_time", String, nullable=True)
     closing_time = Column("closing_time", String, nullable=True)
     only_weekdays = Column("only_weekdays", Boolean, server_default="false", nullable=False)
-    # mark = Column("mark", Boolean, server_default="false", nullable=False)  # True if only company have NEW services
     updated_at = Column("updated_at", DateTime)
     contacts = relationship("CompanyContacts", back_populates="company")
     customer = relationship("User", back_populates="customer_company", single_parent=True)

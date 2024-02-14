@@ -7,10 +7,10 @@ from src.config import app_configs, settings
 from src.database import create_tables
 from src.users.router import router as users_router
 from src.services.router import router as services_router
+from src.media.router import router as media_router
 
 app = FastAPI(**app_configs, root_path="/api/v2")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,12 +33,12 @@ async def healthcheck() -> dict[str, str]:
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(users_router, prefix="/users", tags=["Users"])
 app.include_router(services_router, prefix="/services", tags=["Services"])
+app.include_router(media_router, prefix="/media", tags=["Media"])
 
 
 @app.on_event("startup")
 async def startup_event():
     pass
-
 
 # @router.get("/perfect-ping")
 # async def perfect_ping():
