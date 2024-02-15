@@ -3,6 +3,7 @@ import math
 import os
 import uuid
 from pathlib import Path
+from typing import List
 
 import aiofiles
 from fastapi import UploadFile
@@ -157,3 +158,44 @@ async def save_image_to_db(url: str, service_id: uuid.UUID, owner_type: OwnerTyp
         await session.commit()
         await session.refresh(image_object)
         return True
+
+
+async def remove_unused_media_files(service_id: UUID, old_files: List[str], session: AsyncSession):
+    select_query = select(MediaFiles).where(MediaFiles.service_id == service_id, MediaFiles.owner_type == OwnerTypes.CUSTOMER)
+    model = await session.execute(select_query)
+    media_files = model.scalars().all()
+
+    media_files_in_db = []
+    video_counter = 0
+    image_counter = 0
+    deleted_counter = 0
+
+    for media_file in media_files:
+        media_obj = {
+            "id": str(media_file.id),
+            "file_type": media_file.file_type,
+        }
+        media_files_in_db.append(media_obj)
+
+        if str(media_file.id) not in old_files:
+            # print('delete file', str(media_file.id))
+            # DELETE MEDIA FILE with ID = media_file.id
+            await session.delete(media_file)
+
+            path_type = "videos" if media_file.file_type == FileTypes.VIDEO else "images"
+            file_path = f"./static/{path_type}/{media_file.url}"
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+            deleted_counter += 1
+        else:
+            video_counter += 1 if media_file.file_type == FileTypes.VIDEO else 0
+            image_counter += 1 if media_file.file_type == FileTypes.IMAGE else 0
+
+    if deleted_counter > 0:
+        await session.commit()
+
+    # print('old_files:', old_files)
+    # print('media_files_in_db:', media_files_in_db)
+
+    return video_counter, image_counter

@@ -70,7 +70,7 @@ class ExecutorUserResponse(CustomModel):
     username: str
     password: str
     is_active: bool
-    name: str
+    name: str | None
     phone: str | None  # TODO: Check could it be None?
 
 

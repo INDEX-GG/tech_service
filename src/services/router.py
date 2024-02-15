@@ -357,7 +357,7 @@ async def delete_service_by_id(
     await services.delete_service(service_id, session)
 
 
-@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceResponse, dependencies=[Depends(validate_admin_and_customer_access)])
+@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(validate_admin_and_customer_access)])
 async def edit_service_by_customer(
         service_id: uuid.UUID,
         executor_id: int = Form(None),
@@ -373,33 +373,37 @@ async def edit_service_by_customer(
         image_files: List[UploadFile] = File(None),
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
-) -> dict[str, Any]:
+):
 
     old_files = []
-    count_old_files = 0
 
     if current_files:
         try:
             old_files = json.loads(current_files)
-            count_old_files = len(old_files) if old_files else 0
         except:
             raise HTTPException(status_code=400, detail="Ошибка получения прикрепленных файлов")
+
+    db_video_counter, db_image_counter = await media_service.remove_unused_media_files(service_id, old_files, session)
 
     count_images = len(image_files) if image_files else 0
     count_videos = 1 if video_file else 0
 
     # Проверка общего числа файлов
-    total_files = count_images + count_videos + count_old_files
-    if total_files > 3:
-        raise HTTPException(status_code=400, detail="Общее кол-во файлов не может превышать 3")
+    total_files = count_images + count_videos + db_image_counter + db_video_counter
+    total_images = count_images + db_image_counter
+    total_videos = count_videos + db_video_counter
 
-    # Проверка на количество видео файлов
-    if video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="При наличии видео, кол-во фото не может превышать 2")
+    if total_files > 3 or total_images > 3:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 3 файлов")
 
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 3:
-        raise HTTPException(status_code=400, detail="При отсутствии видео, кол-во фото не может превышать 3")
+    if total_videos > 1:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
+
+    if total_videos == 1 and total_images > 2:
+        raise HTTPException(status_code=400, detail="При наличии видео, кол-во фотографий не может превышать 2")
+
+    if total_videos == 0 and total_images > 3:
+        raise HTTPException(status_code=400, detail="При отсутствии видео, кол-во фотографий не может превышать 3")
 
     service_data = ServiceUpdateInput(
         service_id=service_id,
@@ -413,8 +417,23 @@ async def edit_service_by_customer(
         comment=comment
     )
 
+    owner_type = OwnerTypes.CUSTOMER
+
+    if video_file:
+        uploaded_video = await media_service.save_video(video_file=video_file, service_id=service_id,
+                                                        owner_type=owner_type)
+        if not uploaded_video:
+            raise ValueError("Ошибка загрузки видео")
+
+    if image_files:
+        uploaded_image = await media_service.save_images(image_files=image_files, service_id=service_id,
+                                                         owner_type=owner_type)
+        if not uploaded_image:
+            raise ValueError("Ошибка загрузки фото")
+
     customer_id = int(current_user.user_id) if current_user.is_customer else None
-    print('customer_id', customer_id)
+    # print('customer_id', customer_id)
+
     updated_service = await services.update_service_by_admin(customer_id, service_data, old_files, video_file, image_files, session)
 
     if not updated_service:
