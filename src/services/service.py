@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.models import Service, ServiceStatus, User, Company, OwnerTypes, Roles
-from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput
+from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput, ServiceUpdateInput
 from src.users.service import get_user_profile_by_id, get_user_by_role
 from src.media import service as media_service
 
@@ -154,7 +154,9 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         if not service.viewed_admin:
             service.viewed_admin = True
         service.viewed_customer = False
+        service.viewed_executor = False
         service.deadline_at = assign_data.deadline_at
+        service.comment = assign_data.comment if assign_data.comment else None
         await session.commit()
         await session.refresh(service)
 
@@ -544,3 +546,55 @@ async def delete_service(service_id: UUID, session: AsyncSession):
 
     finally:
         await session.close()
+
+
+async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateInput, old_files: list, video_file: UploadFile, image_files: List[UploadFile], session: AsyncSession):
+    select_query = (select(Service)
+                    .options(
+        selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
+                    .options(selectinload(Service.executor))
+                    .options(selectinload(Service.media_files))
+                    .where(Service.id == service_data.service_id)
+                    )
+
+    result = await session.execute(select_query)
+    service = result.scalar_one_or_none()
+
+    fields_to_update = ['executor_id', 'title', 'description', 'deadline_at', 'material_availability', 'emergency',
+                        'custom_position', 'comment']
+
+    if customer_id:
+        if service.customer_id != customer_id:
+            raise HTTPException(status_code=400, detail="Заказчик может изменять только свои заявки")
+        else:
+            if service.status != ServiceStatus.NEW:
+                raise HTTPException(status_code=400, detail="Заказчик может изменять заявки только со статусом 'Новая'")
+        fields_to_update.remove('executor_id')  # Убираем возможность изменять исполнителя для Заказчика
+        service.viewed_admin = False  # Непросмотрено админом
+    else:
+        service.viewed_customer = False  # Непросмотрено заказчиком
+
+    service.viewed_executor = False  # Непросмотрено исполнителем
+    print('fields_to_update', fields_to_update)
+
+    # counter = 0
+
+    # Обновляем поля
+    for field in fields_to_update:
+        data_value = getattr(service_data, field, None)
+        if data_value is not None:
+            current_value = getattr(service, field)
+            setattr(service, field, data_value) if current_value != data_value else setattr(service, field, current_value)
+            # if current_value != data_value:
+            #   counter +=1
+
+    # if counter > 0:
+    #     service.viewed_executor = False  # Непросмотрено исполнителем
+    #     if customer_id:
+    #         service.viewed_admin = False  # Непросмотрено админом
+    #     else:
+    #         service.viewed_customer = False  # Непросмотрено заказчиком
+
+    await session.commit()
+    await session.refresh(service)
+    return service

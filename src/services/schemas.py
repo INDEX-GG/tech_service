@@ -58,6 +58,7 @@ class ServiceAssignInput(CustomModel):
     service_id: UUID
     executor_id: int
     deadline_at: datetime | None
+    comment: str | None
 
 
 class VideoAndImageInput(BaseModel):
@@ -113,3 +114,14 @@ class CustomerServicesListPaginated(CustomModel):
     counter: int
     items: List[ServiceListedResponse]
 
+
+class ServiceUpdateInput(CustomModel):
+    service_id: UUID
+    executor_id: int | None
+    title: str | None
+    description: str | None
+    material_availability: bool | None
+    emergency: bool | None
+    deadline_at: datetime | None
+    custom_position: bool | None
+    comment: str | None

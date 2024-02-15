@@ -109,3 +109,14 @@ async def validate_users_access(
         return
 
     raise AuthorizationFailed()
+
+
+async def validate_admin_and_customer_access(
+    token: JWTData | None = Depends(parse_jwt_user_data_optional),
+) -> None:
+
+    if token and token.is_active:
+        if token.is_customer or token.is_admin:
+            return
+
+    raise AuthorizationFailed()

@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime
 from typing import Any, List
@@ -5,11 +6,12 @@ from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File,
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.exceptions import AuthorizationFailed
-from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data
+from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data, \
+    validate_admin_and_customer_access
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
-    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated
+    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput
 from src.services import service as services
 from src.media import service as media_service
 
@@ -354,3 +356,68 @@ async def delete_service_by_id(
 ):
     await services.delete_service(service_id, session)
 
+
+@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceResponse, dependencies=[Depends(validate_admin_and_customer_access)])
+async def edit_service_by_customer(
+        service_id: uuid.UUID,
+        executor_id: int = Form(None),
+        title: str = Form(None),
+        description: str = Form(None),
+        material_availability: bool = Form(None),
+        emergency: bool = Form(None),
+        deadline_at: datetime = Form(None),
+        custom_position: bool = Form(None),
+        comment: str = Form(None),
+        current_files: str = Form(None),
+        video_file: UploadFile = File(None),
+        image_files: List[UploadFile] = File(None),
+        session: AsyncSession = Depends(get_async_session),
+        current_user: User = Depends(parse_jwt_user_data)
+) -> dict[str, Any]:
+
+    old_files = []
+    count_old_files = 0
+
+    if current_files:
+        try:
+            old_files = json.loads(current_files)
+            count_old_files = len(old_files) if old_files else 0
+        except:
+            raise HTTPException(status_code=400, detail="Ошибка получения прикрепленных файлов")
+
+    count_images = len(image_files) if image_files else 0
+    count_videos = 1 if video_file else 0
+
+    # Проверка общего числа файлов
+    total_files = count_images + count_videos + count_old_files
+    if total_files > 3:
+        raise HTTPException(status_code=400, detail="Общее кол-во файлов не может превышать 3")
+
+    # Проверка на количество видео файлов
+    if video_file and count_images > 2:
+        raise HTTPException(status_code=400, detail="При наличии видео, кол-во фото не может превышать 2")
+
+    # Проверка на количество фото файлов
+    if not video_file and count_images > 3:
+        raise HTTPException(status_code=400, detail="При отсутствии видео, кол-во фото не может превышать 3")
+
+    service_data = ServiceUpdateInput(
+        service_id=service_id,
+        executor_id=executor_id,
+        title=title,
+        description=description,
+        material_availability=material_availability,
+        emergency=emergency,
+        deadline_at=deadline_at,
+        custom_position=custom_position,
+        comment=comment
+    )
+
+    customer_id = int(current_user.user_id) if current_user.is_customer else None
+    print('customer_id', customer_id)
+    updated_service = await services.update_service_by_admin(customer_id, service_data, old_files, video_file, image_files, session)
+
+    if not updated_service:
+        raise HTTPException(status_code=400, detail="Ошибка изменения заявки")
+
+    return updated_service
