@@ -5,7 +5,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select, update, func, and_, desc, exists, case, asc, delete
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from src.models import Service, ServiceStatus, User, Company, OwnerTypes, Roles
 from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput, ServiceUpdateInput
@@ -491,6 +491,7 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
 
     query = (
         select(Service)
+        .options(joinedload(Service.executor))  # Загрузка данных связанной таблицы
         .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
         .order_by(
             asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)

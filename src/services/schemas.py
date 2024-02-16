@@ -91,6 +91,10 @@ class CompaniesListPaginated(CustomModel):
     items: List[CompaniesListedResponse]
 
 
+class ExecutorModel(CustomModel):
+    name: str | None
+
+
 class ServiceListedResponse(CustomModel):
     id: UUID
     title: str
@@ -102,6 +106,7 @@ class ServiceListedResponse(CustomModel):
     status: ServiceStatus
     created_at: datetime
     deadline_at: datetime | None
+    executor: ExecutorModel | None
 
 
 class ServicesListPaginated(CustomModel):
