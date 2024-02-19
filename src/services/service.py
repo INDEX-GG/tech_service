@@ -438,33 +438,33 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
     return services, total
 
 
-async def get_executor_services_by_status(service_status: ServiceStatus, executor_id: int, sort: str, page: int,
-                                          limit: int, session: AsyncSession):
-    offset = (page - 1) * limit
-
-    count_query = (
-        select(func.count())
-        .select_from(Service)
-        .where(Service.executor_id == executor_id, Service.status == service_status)
-    )
-    total_records = await session.execute(count_query)
-    total = total_records.scalar()
-
-    query = (
-        select(Service)
-        .where(Service.executor_id == executor_id, Service.status == service_status)
-        .order_by(
-            asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
-        )  # Сортируем по дате
-        .offset(offset)
-        .limit(limit)
-    )
-    result = await session.execute(query)
-
-    # Получаем все объекты Company из результата
-    services = result.scalars().all()
-
-    return services, total
+# async def get_executor_services_by_status(service_status: ServiceStatus, executor_id: int, sort: str, page: int,
+#                                           limit: int, session: AsyncSession):
+#     offset = (page - 1) * limit
+#
+#     count_query = (
+#         select(func.count())
+#         .select_from(Service)
+#         .where(Service.executor_id == executor_id, Service.status == service_status)
+#     )
+#     total_records = await session.execute(count_query)
+#     total = total_records.scalar()
+#
+#     query = (
+#         select(Service)
+#         .where(Service.executor_id == executor_id, Service.status == service_status)
+#         .order_by(
+#             asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
+#         )  # Сортируем по дате
+#         .offset(offset)
+#         .limit(limit)
+#     )
+#     result = await session.execute(query)
+#
+#     # Получаем все объекты Company из результата
+#     services = result.scalars().all()
+#
+#     return services, total
 
 
 async def get_company_id_by_customer(customer_id: int, session: AsyncSession):
@@ -493,7 +493,7 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
 
     query = (
         select(Service)
-        .options(joinedload(Service.executor))  # Загрузка данных связанной таблицы
+        # .options(joinedload(Service.executor))  # Загрузка данных связанной таблицы
         .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
         .order_by(
             asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)

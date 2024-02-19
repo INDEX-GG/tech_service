@@ -107,7 +107,7 @@ class ServiceListedResponse(CustomModel):
     created_at: datetime
     updated_at: datetime | None = None
     deadline_at: datetime | None = None
-    executor: ExecutorModel | None = None
+    # executor: ExecutorModel | None = None
 
 
 class ServicesListPaginated(CustomModel):
