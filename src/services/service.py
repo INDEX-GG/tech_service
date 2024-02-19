@@ -37,6 +37,7 @@ async def create_new_service_by_admin(
             custom_position=service_data.custom_position,
             viewed_admin=True,
             deadline_at=service_data.deadline_at,
+            updated_at=func.now(),
             comment=service_data.comment,
             status=ServiceStatus.NEW
         )
@@ -99,6 +100,7 @@ async def create_new_service_by_customer(
             emergency=service_data.emergency,
             viewed_customer=True,
             deadline_at=service_data.deadline_at,
+            updated_at=func.now(),
             status=ServiceStatus.NEW
         )
 

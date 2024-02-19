@@ -105,8 +105,9 @@ class ServiceListedResponse(CustomModel):
     viewed_executor: bool
     status: ServiceStatus
     created_at: datetime
-    deadline_at: datetime | None
-    executor: ExecutorModel | None
+    updated_at: datetime | None = None
+    deadline_at: datetime | None = None
+    executor: ExecutorModel | None = None
 
 
 class ServicesListPaginated(CustomModel):
