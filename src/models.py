@@ -87,7 +87,7 @@ class Service(Base):
     viewed_executor = Column("viewed_executor", Boolean, server_default="false", nullable=False)
 
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column("updated_at", DateTime, onupdate=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
     deadline_at = Column("deadline_at", DateTime, server_default=None, nullable=True)
     comment = Column("comment", String)
     status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.NEW)
