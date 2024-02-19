@@ -50,8 +50,8 @@ class ServiceResponse(CustomModel):
     status: ServiceStatus
     comment: str | None
     customer: CustomerUserResponse
-    executor: ExecutorUserResponse = None
-    media_files: List[MediaFilesResponse] = None
+    executor: ExecutorUserResponse | None = None
+    media_files: List[MediaFilesResponse] | None = None
 
 
 class ServiceAssignInput(CustomModel):
