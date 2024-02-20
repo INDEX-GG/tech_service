@@ -15,7 +15,8 @@ from src.models import FileTypes
 router = APIRouter()
 
 
-@router.get("/video/{key}", response_class=StreamingResponse, dependencies=[Depends(validate_users_access)])
+# @router.get("/video/{key}", response_class=StreamingResponse, dependencies=[Depends(validate_users_access)])
+@router.get("/video/{key}", response_class=StreamingResponse)
 async def get_video(
         key: UUID,
         session: AsyncSession = Depends(get_async_session)
@@ -35,7 +36,8 @@ async def get_video(
     return StreamingResponse(stream_file(), media_type="video/mp4")
 
 
-@router.get("/image/{key}", response_class=FileResponse, dependencies=[Depends(validate_users_access)])
+# @router.get("/image/{key}", response_class=FileResponse, dependencies=[Depends(validate_users_access)])
+@router.get("/image/{key}", response_class=FileResponse)
 async def get_image(
         key: UUID,
         session: AsyncSession = Depends(get_async_session)
