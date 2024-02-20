@@ -47,4 +47,5 @@ async def get_image(
     if not Path(file_path).is_file():
         raise HTTPException(status_code=404, detail="Изображение не найдено")
 
-    return FileResponse(path=file_path, media_type="image/webp")
+    # return FileResponse(path=file_path, media_type="image/webp")
+    return FileResponse(path=file_path)
