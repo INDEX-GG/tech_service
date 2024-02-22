@@ -579,7 +579,8 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
 
     service.viewed_executor = False  # Непросмотрено исполнителем
     print('fields_to_update', fields_to_update)
-
+    if not service_data.description:
+        service.description = None
     # counter = 0
 
     # Обновляем поля
