@@ -31,7 +31,7 @@ settings = Config()
 app_configs: dict[str, Any] = {
     "title": "App API",
     "version": settings.VERSION,
-    "openapi_url": "/test_tech_service/api/v2/openapi.json",
+    "openapi_url": "/openapi.json",
     "root_path": f"/api/v{settings.APP_VERSION}"
 }
 
