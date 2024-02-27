@@ -9,7 +9,7 @@ from src.users.router import router as users_router
 from src.services.router import router as services_router
 from src.media.router import router as media_router
 
-app = FastAPI(**app_configs, openapi_url="/test_tech_service/openapi.json")
+app = FastAPI(**app_configs, openapi_url="/openapi.json")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 router = APIRouter(prefix="/api/v2")
