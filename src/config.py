@@ -30,12 +30,8 @@ settings = Config()
 
 app_configs: dict[str, Any] = {
     "title": "App API",
-    "version": settings.VERSION,
-    "openapi_url": "/openapi.json",
-    "root_path": f"/api/v{settings.APP_VERSION}"
+    "version": settings.VERSION
 }
-
-# app_configs["root_path"] =
 
 # if not settings.ENVIRONMENT.is_debug:
 #     app_configs["openapi_url"] = None  # hide docs
