@@ -9,12 +9,8 @@ from src.users.router import router as users_router
 from src.services.router import router as services_router
 from src.media.router import router as media_router
 
-app = FastAPI(**app_configs, openapi_url="/openapi.json")
+app = FastAPI(**app_configs, root_path="/api/v2")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-router = APIRouter(prefix="/api/v2")
-
-# app.openapi_url = "/arena-delivery/openapi.json"  # prod
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,19 +30,15 @@ async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
-router.include_router(auth_router, prefix="/auth", tags=["Auth"])
-router.include_router(users_router, prefix="/users", tags=["Users"])
-router.include_router(services_router, prefix="/services", tags=["Services"])
-router.include_router(media_router, prefix="/media", tags=["Media"])
-app.include_router(router)
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+app.include_router(users_router, prefix="/users", tags=["Users"])
+app.include_router(services_router, prefix="/services", tags=["Services"])
+app.include_router(media_router, prefix="/media", tags=["Media"])
 
 
 @app.on_event("startup")
 async def startup_event():
     pass
-
-
-
 
 # @router.get("/perfect-ping")
 # async def perfect_ping():
