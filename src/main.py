@@ -2,15 +2,19 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.auth.router import router as auth_router
 from src.config import app_configs, settings
 from src.database import create_tables
-from src.users.router import router as users_router
-from src.services.router import router as services_router
-from src.media.router import router as media_router
+from src.routers import api_router
+# from src.auth.router import router as auth_router
+# from src.users.router import router as users_router
+# from src.services.router import router as services_router
+# from src.media.router import router as media_router
 
-app = FastAPI(**app_configs, root_path="/api/v2")
+# app = FastAPI(**app_configs, root_path="/api/v2")
+app = FastAPI(**app_configs)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +25,8 @@ app.add_middleware(
     allow_headers=settings.CORS_HEADERS,
 )
 
+app.openapi_url = "/test_tech_service/openapi.json"
+
 
 @app.get("/healthcheck", include_in_schema=False)
 async def healthcheck() -> dict[str, str]:
@@ -30,10 +36,10 @@ async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.include_router(auth_router, prefix="/auth", tags=["Auth"])
-app.include_router(users_router, prefix="/users", tags=["Users"])
-app.include_router(services_router, prefix="/services", tags=["Services"])
-app.include_router(media_router, prefix="/media", tags=["Media"])
+# app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+# app.include_router(users_router, prefix="/users", tags=["Users"])
+# app.include_router(services_router, prefix="/services", tags=["Services"])
+# app.include_router(media_router, prefix="/media", tags=["Media"])
 
 
 @app.on_event("startup")
