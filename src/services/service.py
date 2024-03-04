@@ -291,6 +291,13 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
 async def get_all_companies_with_services_info(page: int, limit: int, session: AsyncSession, executor_id: int = None):
     offset = (page - 1) * limit
 
+    active_customer_subquery = (
+        select(Company.id)
+        .join(Company.customer)  # Присоединяем customer
+        .where(Company.customer.has(is_active=True))
+        .distinct()
+    )
+
     #######################################################################
     if executor_id:
         count_query = (
@@ -299,7 +306,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             .where(exists().where(
                 and_(
                     Service.company_id == Company.id,
-                    Service.executor_id == executor_id
+                    Service.executor_id == executor_id,
+                    Company.id.in_(active_customer_subquery)
                 )
             ))
         )
@@ -317,7 +325,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
-                Service.executor_id == executor_id
+                Service.executor_id == executor_id,
+                Company.id.in_(active_customer_subquery)
             ))
             .options(selectinload(Company.services))
             .group_by(Company.id)  # Группируем по компании
@@ -330,7 +339,12 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
         count_query = (
             select(func.count())
             .select_from(Company)
-            .where(exists().where(Service.company_id == Company.id))
+            .where(exists().where(
+                and_(
+                    Service.company_id == Company.id,
+                    Company.id.in_(active_customer_subquery)
+                ))
+            )
         )
 
         query = (
@@ -343,6 +357,9 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                 func.sum(case((Service.status == ServiceStatus.CLOSED, 1), else_=0)).label("closed"),
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
+            .where(and_(
+                Company.id.in_(active_customer_subquery)
+            ))
             .options(selectinload(Company.services))
             .group_by(Company.id)  # Группируем по компании
             .order_by(desc(func.max(Service.updated_at)))  # Сортируем по дате обновления первого сервиса
@@ -392,6 +409,14 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
     offset = (page - 1) * limit
 
     if executor_id:
+        unviewed_count_query = (
+            select(func.count())
+            .select_from(Service)
+            .where(Service.company_id == company_id, Service.status == service_status,
+                   Service.executor_id == executor_id,
+                   Service.viewed_executor == False)
+        )
+
         count_query = (
             select(func.count())
             .select_from(Service)
@@ -411,6 +436,13 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
         )
 
     else:
+        unviewed_count_query = (
+            select(func.count())
+            .select_from(Service)
+            .where(Service.company_id == company_id, Service.status == service_status,
+                   Service.viewed_admin == False)
+        )
+
         count_query = (
             select(func.count())
             .select_from(Service)
@@ -427,6 +459,9 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
             .limit(limit)
         )
 
+    total_records_unviewed = await session.execute(unviewed_count_query)
+    total_unviewed = total_records_unviewed.scalar()
+
     total_records = await session.execute(count_query)
     total = total_records.scalar()
 
@@ -435,7 +470,7 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
     # Получаем все объекты Company из результата
     services = result.scalars().all()
 
-    return services, total
+    return services, total, total_unviewed
 
 
 # async def get_executor_services_by_status(service_status: ServiceStatus, executor_id: int, sort: str, page: int,

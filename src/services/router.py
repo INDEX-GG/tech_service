@@ -245,6 +245,7 @@ async def get_all_companies(
     return response
 
 
+# Не выдается каунтер
 @router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
 async def get_all_company_services_by_status(
         company_id: uuid.UUID,
@@ -285,11 +286,12 @@ async def get_all_company_services_by_status(
     if service_status is None:
         raise HTTPException(status_code=400, detail="Статус не существует")
 
-    services_list, total = await services.get_services_by_status(service_status, company_id, sort, page, limit, session,
+    services_list, total, counter = await services.get_services_by_status(service_status, company_id, sort, page, limit, session,
                                                                  executor_id)
 
     response = {
         "total": total,
+        "counter": counter,
         "items": services_list
     }
 
