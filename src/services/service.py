@@ -2,7 +2,7 @@ from typing import Any, List
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select, update, func, and_, desc, exists, case, asc, delete
+from sqlalchemy import select, update, func, and_, desc, exists, case, asc, delete, or_
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -322,11 +322,14 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             select(
                 Company,
                 func.bool_or(Service.viewed_executor == False).label("marked"),
-                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id,
+                                    Service.viewed_executor == False), 1),
                               else_=0)).label("working"),
-                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id,
+                                    Service.viewed_executor == False), 1),
                               else_=0)).label("verifying"),
-                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id,
+                                    Service.viewed_executor == False), 1),
                               else_=0)).label("closed"),
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
@@ -357,10 +360,15 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             select(
                 Company,
                 func.bool_or(Service.viewed_admin == False).label("marked"),
-                func.sum(case((and_(Service.status == ServiceStatus.NEW, Service.viewed_admin == False), 1), else_=0)).label("new"),
-                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.viewed_admin == False), 1), else_=0)).label("working"),
-                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.viewed_admin == False), 1), else_=0)).label("verifying"),
-                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.viewed_admin == False), 1), else_=0)).label("closed"),
+                func.sum(
+                    case((and_(Service.status == ServiceStatus.NEW, Service.viewed_admin == False), 1), else_=0)).label(
+                    "new"),
+                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.viewed_admin == False), 1),
+                              else_=0)).label("working"),
+                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.viewed_admin == False), 1),
+                              else_=0)).label("verifying"),
+                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.viewed_admin == False), 1),
+                              else_=0)).label("closed"),
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
@@ -411,29 +419,66 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
 
 async def get_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int,
-                                 session: AsyncSession, executor_id: int = None):
+                                 emergency: bool, custom_position: bool, session: AsyncSession,
+                                 executor_id: int = None):
     offset = (page - 1) * limit
 
     if executor_id:
         unviewed_count_query = (
             select(func.count())
             .select_from(Service)
-            .where(Service.company_id == company_id, Service.status == service_status,
-                   Service.executor_id == executor_id,
-                   Service.viewed_executor == False)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                Service.executor_id == executor_id,
+                Service.viewed_executor == False,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
         )
 
         count_query = (
             select(func.count())
             .select_from(Service)
-            .where(Service.company_id == company_id, Service.status == service_status,
-                   Service.executor_id == executor_id)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                Service.executor_id == executor_id,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
         )
 
         query = (
             select(Service)
-            .where(Service.company_id == company_id, Service.status == service_status,
-                   Service.executor_id == executor_id)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                Service.executor_id == executor_id,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
             .order_by(
                 asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
             )  # Сортируем по дате
@@ -445,19 +490,55 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
         unviewed_count_query = (
             select(func.count())
             .select_from(Service)
-            .where(Service.company_id == company_id, Service.status == service_status,
-                   Service.viewed_admin == False)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                Service.viewed_admin == False,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
         )
 
         count_query = (
             select(func.count())
             .select_from(Service)
-            .where(Service.company_id == company_id, Service.status == service_status)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
         )
 
         query = (
             select(Service)
-            .where(Service.company_id == company_id, Service.status == service_status)
+            .where(
+                Service.company_id == company_id,
+                Service.status == service_status,
+                or_(
+                    and_(Service.emergency == True, emergency == True, custom_position == False),
+                    and_(Service.custom_position == True, emergency == False, custom_position == True),
+                    and_(
+                        or_(Service.emergency == True, Service.custom_position == True),
+                        emergency == True,
+                        custom_position == True
+                    ),
+                )
+            )
             .order_by(
                 asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
             )  # Сортируем по дате
@@ -479,35 +560,6 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
     return services, total, total_unviewed
 
 
-# async def get_executor_services_by_status(service_status: ServiceStatus, executor_id: int, sort: str, page: int,
-#                                           limit: int, session: AsyncSession):
-#     offset = (page - 1) * limit
-#
-#     count_query = (
-#         select(func.count())
-#         .select_from(Service)
-#         .where(Service.executor_id == executor_id, Service.status == service_status)
-#     )
-#     total_records = await session.execute(count_query)
-#     total = total_records.scalar()
-#
-#     query = (
-#         select(Service)
-#         .where(Service.executor_id == executor_id, Service.status == service_status)
-#         .order_by(
-#             asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
-#         )  # Сортируем по дате
-#         .offset(offset)
-#         .limit(limit)
-#     )
-#     result = await session.execute(query)
-#
-#     # Получаем все объекты Company из результата
-#     services = result.scalars().all()
-#
-#     return services, total
-
-
 async def get_company_id_by_customer(customer_id: int, session: AsyncSession):
     select_query = select(Company.id).where(Company.user_id == customer_id)
     model = await session.execute(select_query)
@@ -516,26 +568,66 @@ async def get_company_id_by_customer(customer_id: int, session: AsyncSession):
 
 
 async def get_customer_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int,
-                                          limit: int, session: AsyncSession, customer_id: int):
+                                          limit: int, emergency: bool, custom_position: bool, session: AsyncSession,
+                                          customer_id: int):
     offset = (page - 1) * limit
 
     count_query = (
         select(func.count())
         .select_from(Service)
-        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
+        .where(
+            Service.company_id == company_id,
+            Service.status == service_status,
+            Service.customer_id == customer_id,
+            or_(
+                and_(Service.emergency == True, emergency == True, custom_position == False),
+                and_(Service.custom_position == True, emergency == False, custom_position == True),
+                and_(
+                    or_(Service.emergency == True, Service.custom_position == True),
+                    emergency == True,
+                    custom_position == True
+                ),
+            )
+        )
     )
 
     unviewed_count_query = (
         select(func.count())
         .select_from(Service)
-        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id,
-               Service.viewed_customer == False)
+        .where(
+            Service.company_id == company_id,
+            Service.status == service_status,
+            Service.customer_id == customer_id,
+            Service.viewed_customer == False,
+            or_(
+                and_(Service.emergency == True, emergency == True, custom_position == False),
+                and_(Service.custom_position == True, emergency == False, custom_position == True),
+                and_(
+                    or_(Service.emergency == True, Service.custom_position == True),
+                    emergency == True,
+                    custom_position == True
+                ),
+            )
+        )
     )
 
     query = (
         select(Service)
         # .options(joinedload(Service.executor))  # Загрузка данных связанной таблицы
-        .where(Service.company_id == company_id, Service.status == service_status, Service.customer_id == customer_id)
+        .where(
+            Service.company_id == company_id,
+            Service.status == service_status,
+            Service.customer_id == customer_id,
+            or_(
+                and_(Service.emergency == True, emergency == True, custom_position == False),
+                and_(Service.custom_position == True, emergency == False, custom_position == True),
+                and_(
+                    or_(Service.emergency == True, Service.custom_position == True),
+                    emergency == True,
+                    custom_position == True
+                ),
+            )
+        )
         .order_by(
             asc(Service.updated_at) if sort == "date_asc" else desc(Service.updated_at)
         )  # Сортируем по дате
@@ -592,7 +684,8 @@ async def delete_service(service_id: UUID, session: AsyncSession):
         await session.close()
 
 
-async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateInput, old_files: list, video_file: UploadFile, image_files: List[UploadFile], session: AsyncSession):
+async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateInput, old_files: list,
+                                  video_file: UploadFile, image_files: List[UploadFile], session: AsyncSession):
     select_query = (select(Service)
                     .options(
         selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
@@ -629,7 +722,8 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
         data_value = getattr(service_data, field, None)
         if data_value is not None:
             current_value = getattr(service, field)
-            setattr(service, field, data_value) if current_value != data_value else setattr(service, field, current_value)
+            setattr(service, field, data_value) if current_value != data_value else setattr(service, field,
+                                                                                            current_value)
             # if current_value != data_value:
             #   counter +=1
 

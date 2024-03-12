@@ -245,12 +245,13 @@ async def get_all_companies(
     return response
 
 
-# Не выдается каунтер
 @router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
 async def get_all_company_services_by_status(
         company_id: uuid.UUID,
         value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
         sort: str = "date_desc",
+        emergency: bool = False,
+        custom_position: bool = False,
         page: int = 1,
         limit: int = Query(default=15, lte=50),
         current_user: User = Depends(parse_jwt_user_data),
@@ -286,8 +287,9 @@ async def get_all_company_services_by_status(
     if service_status is None:
         raise HTTPException(status_code=400, detail="Статус не существует")
 
-    services_list, total, counter = await services.get_services_by_status(service_status, company_id, sort, page, limit, session,
-                                                                 executor_id)
+    services_list, total, counter = await services.get_services_by_status(service_status, company_id, sort, page, limit,
+                                                                          emergency, custom_position, session,
+                                                                          executor_id)
 
     response = {
         "total": total,
@@ -302,6 +304,8 @@ async def get_all_company_services_by_status(
 async def get_all_customer_services_by_status(
         value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
         sort: str = "date_desc",
+        emergency: bool = False,
+        custom_position: bool = False,
         page: int = 1,
         limit: int = Query(default=15, lte=50),
         current_user: User = Depends(parse_jwt_user_data),
@@ -340,7 +344,9 @@ async def get_all_customer_services_by_status(
     company_id = await services.get_company_id_by_customer(customer_id, session)
 
     services_list, total, counter = await services.get_customer_services_by_status(service_status, company_id, sort,
-                                                                                   page, limit, session, customer_id)
+                                                                                   page, limit, emergency,
+                                                                                   custom_position, session,
+                                                                                   customer_id)
 
     response = {
         "total": total,
@@ -351,7 +357,8 @@ async def get_all_customer_services_by_status(
     return response
 
 
-@router.delete("/delete/{service_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(validate_admin_access)])
+@router.delete("/delete/{service_id}", status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=[Depends(validate_admin_access)])
 async def delete_service_by_id(
         service_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session)
@@ -359,7 +366,8 @@ async def delete_service_by_id(
     await services.delete_service(service_id, session)
 
 
-@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(validate_admin_and_customer_access)])
+@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED,
+              dependencies=[Depends(validate_admin_and_customer_access)])
 async def edit_service_by_customer(
         service_id: uuid.UUID,
         executor_id: int = Form(None),
@@ -376,7 +384,6 @@ async def edit_service_by_customer(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
-
     old_files = []
 
     if current_files:
@@ -436,7 +443,8 @@ async def edit_service_by_customer(
     customer_id = int(current_user.user_id) if current_user.is_customer else None
     # print('customer_id', customer_id)
 
-    updated_service = await services.update_service_by_admin(customer_id, service_data, old_files, video_file, image_files, session)
+    updated_service = await services.update_service_by_admin(customer_id, service_data, old_files, video_file,
+                                                             image_files, session)
 
     if not updated_service:
         raise HTTPException(status_code=400, detail="Ошибка изменения заявки")
