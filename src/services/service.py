@@ -159,6 +159,12 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         service.viewed_executor = False
         service.deadline_at = assign_data.deadline_at
         service.comment = assign_data.comment if assign_data.comment else None
+
+        if assign_data.emergency is not None:
+            service.emergency = assign_data.emergency
+        if assign_data.custom_position is not None:
+            service.custom_position = assign_data.custom_position
+
         await session.commit()
         await session.refresh(service)
 

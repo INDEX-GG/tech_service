@@ -59,6 +59,8 @@ class ServiceAssignInput(CustomModel):
     executor_id: int
     deadline_at: datetime | None
     comment: str | None = None
+    emergency: bool | None = None
+    custom_position: bool | None = None
 
 
 class VideoAndImageInput(BaseModel):
