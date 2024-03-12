@@ -60,7 +60,7 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
     total = total_records.scalar()
 
     select_query = (
-        select(User.id, Company.name, Company.address)
+        select(User.id, Company.id, Company.name, Company.address)
         .join(Company)
         .where(base_condition, User.is_active)
         .order_by(desc(User.created_at))
@@ -72,10 +72,11 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
     response = customers.fetchall()
 
     response_data = []
-    for user_id, company_name, company_address in response:
+    for user_id, company_id, company_name, company_address in response:
         response_data.append({
             "id": user_id,
             "customer_company": {
+                "id": company_id,
                 "name": company_name,
                 "address": company_address
             }

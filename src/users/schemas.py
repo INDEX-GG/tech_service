@@ -44,6 +44,7 @@ class CustomerUserResponse(CustomModel):
 
 
 class CustomerShortCompany(CustomModel):
+    id: UUID
     name: str
     address: str
 
