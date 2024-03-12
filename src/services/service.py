@@ -316,11 +316,11 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             select(
                 Company,
                 func.bool_or(Service.viewed_executor == False).label("marked"),
-                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
                               else_=0)).label("working"),
-                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
                               else_=0)).label("verifying"),
-                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id), 1),
+                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id, Service.viewed_executor == False), 1),
                               else_=0)).label("closed"),
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
@@ -351,10 +351,10 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             select(
                 Company,
                 func.bool_or(Service.viewed_admin == False).label("marked"),
-                func.sum(case((Service.status == ServiceStatus.NEW, 1), else_=0)).label("new"),
-                func.sum(case((Service.status == ServiceStatus.WORKING, 1), else_=0)).label("working"),
-                func.sum(case((Service.status == ServiceStatus.VERIFYING, 1), else_=0)).label("verifying"),
-                func.sum(case((Service.status == ServiceStatus.CLOSED, 1), else_=0)).label("closed"),
+                func.sum(case((and_(Service.status == ServiceStatus.NEW, Service.viewed_admin == False), 1), else_=0)).label("new"),
+                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.viewed_admin == False), 1), else_=0)).label("working"),
+                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.viewed_admin == False), 1), else_=0)).label("verifying"),
+                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.viewed_admin == False), 1), else_=0)).label("closed"),
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
