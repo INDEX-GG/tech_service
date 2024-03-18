@@ -440,6 +440,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False)
                 )
             )
         )
@@ -459,6 +461,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False)
                 )
             )
         )
@@ -477,6 +481,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False)
                 )
             )
             .order_by(
@@ -502,6 +508,7 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False, custom_position == False)
                 )
             )
         )
@@ -520,6 +527,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False)
                 )
             )
         )
@@ -537,6 +546,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False)
                 )
             )
             .order_by(
@@ -587,6 +598,8 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     emergency == True,
                     custom_position == True
                 ),
+                and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False)
             )
         )
     )
@@ -607,6 +620,8 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     emergency == True,
                     custom_position == True
                 ),
+                and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False)
             )
         )
     )
@@ -626,6 +641,8 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     emergency == True,
                     custom_position == True
                 ),
+                and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False)
             )
         )
         .order_by(
