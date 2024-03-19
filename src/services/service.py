@@ -441,6 +441,12 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         custom_position == True
                     ),
                     and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                          custom_position == False)
                 )
             )
@@ -462,6 +468,12 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         custom_position == True
                     ),
                     and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                          custom_position == False)
                 )
             )
@@ -482,6 +494,12 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         custom_position == True
                     ),
                     and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                          custom_position == False)
                 )
             )
@@ -508,7 +526,14 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         emergency == True,
                         custom_position == True
                     ),
-                    and_(Service.custom_position == False, Service.emergency == False, emergency == False, custom_position == False)
+                    and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
+                         custom_position == False)
                 )
             )
         )
@@ -528,6 +553,12 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         custom_position == True
                     ),
                     and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                          custom_position == False)
                 )
             )
@@ -547,6 +578,12 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
                         custom_position == True
                     ),
                     and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                         custom_position == False),
+                    and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                          custom_position == False)
                 )
             )
@@ -599,6 +636,12 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     custom_position == True
                 ),
                 and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                      custom_position == False)
             )
         )
@@ -621,6 +664,12 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     custom_position == True
                 ),
                 and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                      custom_position == False)
             )
         )
@@ -642,6 +691,12 @@ async def get_customer_services_by_status(service_status: ServiceStatus, company
                     custom_position == True
                 ),
                 and_(Service.custom_position == False, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == False, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == False, Service.emergency == True, emergency == False,
+                     custom_position == False),
+                and_(Service.custom_position == True, Service.emergency == True, emergency == False,
                      custom_position == False)
             )
         )
