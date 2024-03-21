@@ -157,7 +157,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
             service.viewed_admin = True
         service.viewed_customer = False
         service.viewed_executor = False
-        service.deadline_at = assign_data.deadline_at
+        service.deadline_at = assign_data.deadline_at.replace(tzinfo=None) if assign_data.deadline_at else None
         service.comment = assign_data.comment if assign_data.comment else None
 
         if assign_data.emergency is not None:
