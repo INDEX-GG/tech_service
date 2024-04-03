@@ -366,7 +366,7 @@ async def delete_service_by_id(
     await services.delete_service(service_id, session)
 
 
-@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED,
+@router.patch("/edit/{service_id}", status_code=status.HTTP_202_ACCEPTED, response_model=ServiceResponse,
               dependencies=[Depends(validate_admin_and_customer_access)])
 async def edit_service_by_customer(
         service_id: uuid.UUID,
