@@ -148,7 +148,7 @@ async def assign_executor(
     return attached_service
 
 
-@router.post("/verify")
+@router.post("/verify", status_code=status.HTTP_200_OK, response_model=ServiceResponse)
 async def mark_service_verifying_by_executor(
         service_id: uuid.UUID = Form(...),
         video_file: UploadFile = File(None),
@@ -203,10 +203,9 @@ async def mark_service_verifying_by_executor(
     if not marked_verifying:
         raise HTTPException(status_code=400, detail="Ошибка отправления заявки на контроль качества")
 
-    response = {
-        "detail": "Заявка успешно отправлена на контроль качества"
-    }
-    return response
+    service = await services.get_service_card_by_id(service_id, current_user.role, session)
+
+    return service
 
 
 @router.post("/close/{service_id}", status_code=status.HTTP_200_OK, response_model=ServiceResponse,
