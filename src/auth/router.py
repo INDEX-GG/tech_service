@@ -16,14 +16,14 @@ from src.database import get_async_session
 router = APIRouter()
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegisterUserResponse)
-async def register_user(
-        auth_data: AuthUser = Depends(valid_user_create),
-) -> dict[str, str]:
-    user = await service.create_user(auth_data)
-    return {
-        "username": user["username"],
-    }
+#@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegisterUserResponse)
+#async def register_user(
+#        auth_data: AuthUser = Depends(valid_user_create),
+#) -> dict[str, str]:
+#    user = await service.create_user(auth_data)
+#    return {
+#        "username": user["username"],
+#    }
 
 
 @router.post("/tokens", response_model=AccessTokenResponse)
@@ -62,4 +62,3 @@ async def logout_user(
         refresh_token: dict[str, Any] = Depends(valid_refresh_token),
 ) -> None:
     await service.expire_refresh_token(refresh_token["uuid"])
-    # TODO: create some response?

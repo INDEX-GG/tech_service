@@ -25,15 +25,15 @@ app.add_middleware(
     allow_headers=settings.CORS_HEADERS,
 )
 
-app.openapi_url = "/test_tech_service/openapi.json"
+app.openapi_url = "/openapi.json"
 
 
-@app.get("/healthcheck", include_in_schema=False)
-async def healthcheck() -> dict[str, str]:
-    await create_tables()
-    print(settings.ENVIRONMENT)
-    print(settings.SITE_DOMAIN)
-    return {"status": "ok"}
+#@app.get("/healthcheck", include_in_schema=False)
+#async def healthcheck() -> dict[str, str]:
+#    await create_tables()
+#    print(settings.ENVIRONMENT)
+#    print(settings.SITE_DOMAIN)
+#    return {"status": "ok"}
 
 
 # app.include_router(auth_router, prefix="/auth", tags=["Auth"])
