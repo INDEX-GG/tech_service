@@ -36,6 +36,15 @@ app.openapi_url = "/openapi.json"
 #    return {"status": "ok"}
 
 
+@app.get("/policy", include_in_schema=False)
+async def policy() -> FileResponse:
+    return FileResponse("templates/policy.html", media_type="text/html")
+
+
+@app.get("/user-accept", include_in_schema=False)
+async def user_accept() -> FileResponse:
+    return FileResponse("templates/user_accept.html", media_type="text/html")
+
 # app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 # app.include_router(users_router, prefix="/users", tags=["Users"])
 # app.include_router(services_router, prefix="/services", tags=["Services"])
