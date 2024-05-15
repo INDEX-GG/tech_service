@@ -9,8 +9,9 @@ from src.routers import api_router
 # from src.users.router import router as users_router
 # from src.services.router import router as services_router
 # from src.media.router import router as media_router
-
+from fastapi.responses import FileResponse
 # app = FastAPI(**app_configs, root_path="/api/v2")
+
 app = FastAPI(**app_configs)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
