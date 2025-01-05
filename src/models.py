@@ -68,13 +68,21 @@ class Roles(Enum):
     EXECUTOR = "executor"
 
 
+class ServiceExecutorsLinkedTable(Base):
+    __tablename__ = "service_executor_linked_table"
+    __table_args__ = {"schema": "public"}
+    id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4, nullable=False)
+    service_id = Column("service_id", UUID(as_uuid=True), ForeignKey("public.services.id"), nullable=False)
+    executor_id = Column("executor_id", Integer, ForeignKey("public.users.id"), nullable=False)
+    viewed_executor = Column("viewed_executor", Boolean, default=False, nullable=False)
+
+
 class Service(Base):
     """Модель заявок"""
     __tablename__ = "services"
     __table_args__ = {"schema": "public"}
     id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     customer_id = Column("customer_id", Integer, ForeignKey("public.users.id"), nullable=False, index=True)
-    executor_id = Column("executor_id", Integer, ForeignKey("public.users.id"), index=True)
     company_id = Column("company_id", UUID(as_uuid=True), ForeignKey("public.company.id"), index=True)
     title = Column("title", String, nullable=False)
     description = Column("description", String)
@@ -84,7 +92,6 @@ class Service(Base):
 
     viewed_admin = Column("viewed_admin", Boolean, server_default="false", nullable=False)
     viewed_customer = Column("viewed_customer", Boolean, server_default="false", nullable=False)
-    viewed_executor = Column("viewed_executor", Boolean, server_default="false", nullable=False)
 
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
@@ -95,8 +102,7 @@ class Service(Base):
 
     customer = relationship("User", foreign_keys=[customer_id], back_populates="customer_services", single_parent=True,
                             uselist=False)
-    executor = relationship("User", foreign_keys=[executor_id], back_populates="executor_services", single_parent=True,
-                            uselist=False)
+    executors = relationship("User", secondary="public.service_executor_linked_table", backref="services")
     company = relationship("Company", back_populates="services", single_parent=True, uselist=False)
 
 
@@ -119,8 +125,7 @@ class User(Base):
     customer_company = relationship("Company", back_populates="customer", cascade="all, delete-orphan", uselist=False)
     customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer",
                                      cascade="all, delete-orphan")
-    executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor",
-                                     cascade="all, delete-orphan")
+    executor_services = relationship("Service", secondary="public.service_executor_linked_table", backref='users')
 
 
 class RefreshTokens(Base):
