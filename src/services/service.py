@@ -28,7 +28,6 @@ async def create_new_service_by_admin(
 
         new_service = Service(
             customer_id=customer_id,
-            executor_id=service_data.executor_id,
             company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
@@ -42,15 +41,17 @@ async def create_new_service_by_admin(
             status=ServiceStatus.NEW
         )
 
+        if service_data.executor_id:
+            executor = await get_user_by_role(service_data.executor_id, "is_executor", session)
+            if executor is not None:
+                new_service.executors.append(executor)
+
         session.add(new_service)
         await session.commit()
         await session.refresh(new_service)
 
-        new_service.customer = customer
 
-        if service_data.executor_id:
-            executor = await get_user_by_role(service_data.executor_id, "is_executor", session)
-            new_service.executor = executor
+        new_service.customer = customer
 
         owner_type = OwnerTypes.CUSTOMER
 
@@ -69,7 +70,15 @@ async def create_new_service_by_admin(
         media_files = await get_media_files_by_service_id(new_service.id, session)
         new_service.media_files = media_files
 
+        executors_query = (select(Service).where(Service.id == new_service.id).options(selectinload(Service.executors)))
+        executors_models = await session.execute(executors_query)
+        executors = executors_models.scalar_one_or_none().executors
+
+        new_service.executor_id = executors[0].id if executors else None
+        new_service.executor = executors[0] if executors else None
+
         return new_service
+
 
     except Exception as e:
         # Обработка ошибок
