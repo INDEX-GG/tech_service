@@ -122,6 +122,11 @@ class User(Base):
     executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor",
                                      cascade="all, delete-orphan")
 
+    customer_default_executor = relationship("Company", back_populates="default_executor",
+                                             cascade="all, delete-orphan", uselist=False)
+    customer_additional_executor = relationship("Company", back_populates="additional_executor",
+                                                cascade="all, delete-orphan", uselist=False)
+
 
 class RefreshTokens(Base):
     """Модель пользователей"""
@@ -161,6 +166,10 @@ class Company(Base):
     updated_at = Column("updated_at", DateTime)
     contacts = relationship("CompanyContacts", back_populates="company")
     customer = relationship("User", back_populates="customer_company", single_parent=True)
+
+    default_executor = relationship("User", back_populates="customer_default_executor", single_parent=True)
+    additional_executor = relationship("User", back_populates="customer_additional_executor", single_parent=True)
+
     services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
 
     @hybrid_property
