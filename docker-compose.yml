@@ -1,9 +1,8 @@
-version: '3.9'
 
 services:
   tech_service_db_host:
     container_name: tech_service_db
-    hostname: tech_service_db_host
+#    hostname: tech_service_db_host
     image: postgres:15
     env_file:
       - .env
@@ -14,6 +13,8 @@ services:
     command: -p 5433
     expose:
       - 5433
+    ports:
+      - "5555:5433"
 
   tech_service_app:
     container_name: tech_service
