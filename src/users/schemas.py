@@ -16,6 +16,8 @@ class UserCompany(CustomModel):
     address: str | None
     opening_time: str | None
     closing_time: str | None
+    executor_default_id: int
+    executor_additional_id: int | None
     only_weekdays: bool
     contacts: List[CompanyContacts] = []
 
@@ -100,6 +102,8 @@ class CreateCustomerInput(CustomModel):
     opening_time: str
     closing_time: str
     only_weekdays: bool
+    executor_default_id: int
+    executor_additional_id: int | None
     contacts: List[CustomerContacts]
 
 
