@@ -24,6 +24,7 @@ from src.users.schemas import (
     ExecutorUserResponse,
     UserResponse, EditCustomerContacts, CompanyContacts,
 )
+from src.users.service import get_user_profile_by_id, get_company_by_id
 
 router = APIRouter()
 
@@ -45,8 +46,11 @@ async def get_customer_account(
 ) -> dict[str, Any]:
     role = "is_customer"
     user = await users_service.get_user_by_role(user_id, role, session)
+    company = user.customer_company;
 
     if user:
+        company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+        company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
         return user
     else:
         raise HTTPException(status_code=404, detail="Пользователь на найден")

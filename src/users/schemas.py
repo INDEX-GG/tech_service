@@ -14,6 +14,8 @@ class UserCompany(CustomModel):
     id: UUID
     name: str
     address: str | None
+    executor_default_id: int | None
+    executor_additional_id: int | None
     opening_time: str | None
     closing_time: str | None
     only_weekdays: bool
@@ -32,15 +34,22 @@ class UserResponse(CustomModel):
     phone: str | None
     customer_company: UserCompany | None
 
+class ExecutorsList(CustomModel):
+    id: int
+    name: str | None
+    phone: str | None
+    phone: str | None
+    username: str
+
+class UserCompanyResponse(UserCompany):
+    executor_default: ExecutorsList | None
+    executor_additional: ExecutorsList | None
 
 class CustomerUserResponse(CustomModel):
     id: int
     username: str
     password: str
-    # is_active: bool
-    # name: str | None
-    # phone: str | None
-    customer_company: UserCompany | None
+    customer_company: UserCompanyResponse | None
 
 
 class CustomerShortCompany(CustomModel):
@@ -54,13 +63,6 @@ class CustomersList(CustomModel):
     customer_company: CustomerShortCompany | None
 
 
-class ExecutorsList(CustomModel):
-    id: int
-    name: str | None
-    phone: str | None
-    username: str
-
-
 class CustomersListPaginated(CustomModel):
     total: int
     items: List[CustomersList]
@@ -71,6 +73,8 @@ class ExecutorUserResponse(CustomModel):
     username: str
     password: str
     is_active: bool
+    executor_default_id: int
+    executor_additional_id: int
     name: str | None
     phone: str | None  # TODO: Check could it be None?
 
