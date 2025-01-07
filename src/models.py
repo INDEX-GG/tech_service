@@ -100,6 +100,28 @@ class Service(Base):
     company = relationship("Company", back_populates="services", single_parent=True, uselist=False)
 
 
+class Company(Base):
+    """Модель заявок"""
+    __tablename__ = "company"
+    __table_args__ = {"schema": "public"}
+    id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    user_id = Column("user_id", Integer, ForeignKey("public.users.id"), nullable=False, index=True)
+    executor_default_id = Column("executor_default_id", Integer, ForeignKey("public.users.id"))
+    executor_additional_id = Column("executor_additional_id", Integer, ForeignKey("public.users.id"))
+    name = Column("name", String, nullable=False)
+    address = Column("address", String, nullable=True)
+    opening_time = Column("opening_time", String, nullable=True)
+    closing_time = Column("closing_time", String, nullable=True)
+    only_weekdays = Column("only_weekdays", Boolean, server_default="false", nullable=False)
+    updated_at = Column("updated_at", DateTime)
+
+    contacts = relationship("CompanyContacts", back_populates="company")
+    customer = relationship("User", foreign_keys=[user_id], back_populates="customer_company", single_parent=True)
+    executor_default = relationship("User", foreign_keys=[executor_default_id], back_populates="company_executor_default", single_parent=True, uselist=False)
+    executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="company_executor_additional", single_parent=True, uselist=False)
+    services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
+
+
 class User(Base):
     """Модель пользователей"""
     __tablename__ = "users"
@@ -116,16 +138,13 @@ class User(Base):
     phone = Column("phone", String, nullable=True)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
-    customer_company = relationship("Company", back_populates="customer", cascade="all, delete-orphan", uselist=False)
-    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer",
-                                     cascade="all, delete-orphan")
+
     executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor",
                                      cascade="all, delete-orphan")
-
-    customer_default_executor = relationship("Company", back_populates="default_executor",
-                                             cascade="all, delete-orphan", uselist=False)
-    customer_additional_executor = relationship("Company", back_populates="additional_executor",
-                                                cascade="all, delete-orphan", uselist=False)
+    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer", cascade="all, delete-orphan")
+    customer_company = relationship("Company", foreign_keys=[Company.user_id], back_populates="customer", cascade="all, delete-orphan", uselist=False)
+    company_executor_default = relationship("Company", foreign_keys=[Company.executor_default_id], back_populates="executor_default", cascade="all, delete-orphan")
+    company_executor_additional = relationship("Company", foreign_keys=[Company.executor_additional_id], back_populates="executor_additional", cascade="all, delete-orphan")
 
 
 class RefreshTokens(Base):
@@ -151,26 +170,6 @@ class MediaFiles(Base):
     url = Column("url", String, nullable=False)
     service = relationship("Service", back_populates="media_files")
 
-
-class Company(Base):
-    """Модель заявок"""
-    __tablename__ = "company"
-    __table_args__ = {"schema": "public"}
-    id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    user_id = Column("user_id", Integer, ForeignKey("public.users.id"), nullable=False, index=True)
-    name = Column("name", String, nullable=False)
-    address = Column("address", String, nullable=True)
-    opening_time = Column("opening_time", String, nullable=True)
-    closing_time = Column("closing_time", String, nullable=True)
-    only_weekdays = Column("only_weekdays", Boolean, server_default="false", nullable=False)
-    updated_at = Column("updated_at", DateTime)
-    contacts = relationship("CompanyContacts", back_populates="company")
-    customer = relationship("User", back_populates="customer_company", single_parent=True)
-
-    default_executor = relationship("User", back_populates="customer_default_executor", single_parent=True)
-    additional_executor = relationship("User", back_populates="customer_additional_executor", single_parent=True)
-
-    services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
 
     @hybrid_property
     def new_services_count(self):
