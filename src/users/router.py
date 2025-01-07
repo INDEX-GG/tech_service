@@ -125,7 +125,6 @@ async def create_new_executor(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     user = await auth_service.get_user_by_username(executor_data.username, session)
-    print(user)
     if user:
         raise UsernameTaken()
 
@@ -238,6 +237,8 @@ async def edit_company_data(
         if user.customer_company:
             company_id = user.customer_company.id
             company = await users_service.edit_users_company(company_id, company_data, session)
+            company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+            company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
 
             if company:
                 user.customer_company = company

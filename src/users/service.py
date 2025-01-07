@@ -293,6 +293,10 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
             company.name = company_data.name
         if company_data.address:
             company.address = company_data.address
+        if company_data.executor_default_id:
+            company.executor_default_id = company_data.executor_default_id
+        if company_data.executor_additional_id:
+            company.executor_additional_id = company_data.executor_additional_id
         if company_data.opening_time:
             company.opening_time = company_data.opening_time
         if company_data.closing_time:

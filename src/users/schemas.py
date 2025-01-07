@@ -14,7 +14,7 @@ class UserCompany(CustomModel):
     id: UUID
     name: str
     address: str | None
-    executor_default_id: int | None
+    executor_default_id: int
     executor_additional_id: int | None
     opening_time: str | None
     closing_time: str | None
@@ -73,8 +73,6 @@ class ExecutorUserResponse(CustomModel):
     username: str
     password: str
     is_active: bool
-    executor_default_id: int
-    executor_additional_id: int
     name: str | None
     phone: str | None  # TODO: Check could it be None?
 
@@ -125,6 +123,9 @@ class EditCustomerCompany(CustomModel):
     opening_time: str = None
     closing_time: str = None
     only_weekdays: bool = None
+    executor_default_id: int = None
+    executor_additional_id: int = None
+
 
 
 class EditCustomerContacts(CustomModel):
