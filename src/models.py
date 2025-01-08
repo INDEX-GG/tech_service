@@ -127,6 +127,15 @@ class Company(Base):
     executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="company_executor_additional", single_parent=True, uselist=False)
     services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
 
+    @hybrid_property
+    def new_services_count(self):
+        return sum(
+            1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
+
+    def new_services_count_executor(self, executor_id):
+        return sum(1 for service in self.services if (
+                service.status == ServiceStatus.WORKING and service.viewed_executor == False and service.executor_id == executor_id))
+
 
 class User(Base):
     """Модель пользователей"""
@@ -184,14 +193,6 @@ class MediaFiles(Base):
     url = Column("url", String, nullable=False)
     service = relationship("Service", back_populates="media_files")
 
-
-    @hybrid_property
-    def new_services_count(self):
-        return sum(1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
-
-    def new_services_count_executor(self, executor_id):
-        return sum(1 for service in self.services if (
-                    service.status == ServiceStatus.WORKING and service.viewed_executor == False and service.executor_id == executor_id))
 
 
 class CompanyContacts(Base):
