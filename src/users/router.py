@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
@@ -28,6 +28,8 @@ from src.users.service import get_user_profile_by_id, get_company_by_id
 
 router = APIRouter()
 
+
+DUTY_ID: int = 1
 
 @router.get("/me", response_model=UserResponse)
 async def get_my_account(
@@ -96,6 +98,12 @@ async def get_executors_list(
     return response
 
 
+@router.get('/get_duty', response_model=UserResponse, dependencies=[Depends(validate_admin_access)])
+async def get_duty_executor(session: AsyncSession = Depends(get_async_session)) -> dict[str, Any]:
+    response = await get_user_profile_by_id(DUTY_ID, session)
+    return response
+
+
 @router.post("/customers/create", status_code=status.HTTP_201_CREATED, response_model=CustomerUserResponse,
              dependencies=[Depends(validate_admin_access)])
 async def create_new_customer(
@@ -112,6 +120,9 @@ async def create_new_customer(
     if customer:
         role = "is_customer"
         user = await users_service.get_user_by_role(customer.id, role, session)
+        company = user.customer_company
+        company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+        company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
         if user:
             return user
         else:

@@ -123,8 +123,8 @@ class EditCustomerCompany(CustomModel):
     opening_time: str = None
     closing_time: str = None
     only_weekdays: bool = None
-    executor_default_id: int = None
-    executor_additional_id: int = None
+    executor_default_id: int = False
+    executor_additional_id: int | None = False
 
 
 
