@@ -154,6 +154,13 @@ class User(Base):
     company_executor_additional = relationship("Company", foreign_keys=[Company.executor_additional_id], back_populates="executor_additional", cascade="all, delete-orphan")
 
 
+class ExecutorDefault(Base):
+    """Модель дежурного исполнителя"""
+    __tablename__ = "executor_default"
+    __table_args__ = {"schema": "public"}
+    executor_id = Column("customer_id", Integer, ForeignKey("public.users.id"), primary_key=True, unique=True, nullable=False, index=True)
+
+
 class RefreshTokens(Base):
     """Модель пользователей"""
     __tablename__ = "auth_refresh_token"

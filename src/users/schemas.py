@@ -38,7 +38,6 @@ class ExecutorsList(CustomModel):
     id: int
     name: str | None
     phone: str | None
-    phone: str | None
     username: str
 
 class UserCompanyResponse(UserCompany):
@@ -75,6 +74,9 @@ class ExecutorUserResponse(CustomModel):
     is_active: bool
     name: str | None
     phone: str | None  # TODO: Check could it be None?
+
+class ExecutorDefaultUserResponse(CustomModel):
+    executor_id: int
 
 
 class ExecutorsListPaginated(CustomModel):

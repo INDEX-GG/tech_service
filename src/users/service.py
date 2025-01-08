@@ -8,7 +8,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Company, CompanyContacts, User, Roles, RefreshTokens
+from src.models import Company, CompanyContacts, User, Roles, RefreshTokens, ExecutorDefault
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
     EditCustomerCompany, EditCustomerContacts
 
@@ -36,6 +36,21 @@ async def get_user_by_role(user_id: int, role: str, session: AsyncSession) -> di
     user = await session.execute(select_query)
     response = user.scalar_one_or_none()
     return response
+
+async def get_user_executor_default(session: AsyncSession) -> dict[str, Any] | None:
+    try:
+        select_query = select(ExecutorDefault)
+
+        executor_default = await session.execute(select_query)
+        executor_default_dict = executor_default.scalars().first()
+
+        if executor_default_dict:
+            return await get_user_profile_by_id(executor_default_dict.executor_id, session)
+    except Exception as e:
+        print(f"Error get executor default: {e}")
+        return None
+
+
 
 
 async def get_customers(search: str, offset: int, limit: int, session: AsyncSession) -> dict[str, Any] | None:
@@ -169,6 +184,46 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
         # Не забудьте закрыть сессию после выполнения операций
         await session.close()
 
+# TODO: баг при удалении, если таблица пустая
+async def delete_executor_default(session: AsyncSession) -> dict[str, Any] | None:
+    try:
+        delete_query = delete(ExecutorDefault)
+        result = await session.execute(delete_query)
+        affected_rows = result.rowcount
+
+        if affected_rows == 0:
+            raise NoResultFound()
+
+        await session.commit()
+        print('Executor default deleted successfully')
+
+    except Exception as e:
+        print(f"Error deleting executor default: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка удаления дежурного исполнителя")
+
+    finally:
+        await session.close()
+
+async def create_executor_default(executor_id: int, session: AsyncSession) -> dict[str, Any] | None:
+    await delete_executor_default(session)
+
+    try:
+        executor_default = ExecutorDefault(executor_id=executor_id)
+
+        session.add(executor_default)
+        await session.commit()
+        await session.refresh(executor_default)
+
+        return executor_default
+    except Exception as e:
+        # Обработка ошибок
+        print(f"Error creating default executor: {e}")
+        await session.rollback()
+        return None
+    finally:
+        # Не забудьте закрыть сессию после выполнения операций
+        await session.close()
 
 async def create_customer(customer_data: CreateCustomerInput, session: AsyncSession) -> dict[str, Any] | None:
     try:
