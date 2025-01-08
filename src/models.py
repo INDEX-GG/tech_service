@@ -74,7 +74,8 @@ class Service(Base):
     __table_args__ = {"schema": "public"}
     id = Column("id", UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     customer_id = Column("customer_id", Integer, ForeignKey("public.users.id"), nullable=False, index=True)
-    executor_id = Column("executor_id", Integer, ForeignKey("public.users.id"), index=True)
+    executor_default_id = Column("executor_default_id", Integer, ForeignKey("public.users.id"), index=True)
+    executor_additional_id = Column("executor_additional_id", Integer, ForeignKey("public.users.id"), index=True)
     company_id = Column("company_id", UUID(as_uuid=True), ForeignKey("public.company.id"), index=True)
     title = Column("title", String, nullable=False)
     description = Column("description", String)
@@ -84,7 +85,9 @@ class Service(Base):
 
     viewed_admin = Column("viewed_admin", Boolean, server_default="false", nullable=False)
     viewed_customer = Column("viewed_customer", Boolean, server_default="false", nullable=False)
-    viewed_executor = Column("viewed_executor", Boolean, server_default="false", nullable=False)
+    viewed_executor_default = Column("viewed_executor_default", Boolean, server_default="false", nullable=False)
+    viewed_executor_additional = Column("viewed_executor_additional", Boolean, server_default="false", nullable=False)
+
 
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
@@ -95,8 +98,11 @@ class Service(Base):
 
     customer = relationship("User", foreign_keys=[customer_id], back_populates="customer_services", single_parent=True,
                             uselist=False)
-    executor = relationship("User", foreign_keys=[executor_id], back_populates="executor_services", single_parent=True,
+    executor_default = relationship("User", foreign_keys=[executor_default_id], back_populates="executor_default_services", single_parent=True,
                             uselist=False)
+    executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="executor_additional_services", single_parent=True,
+                            uselist=False)
+
     company = relationship("Company", back_populates="services", single_parent=True, uselist=False)
 
 
@@ -138,9 +144,10 @@ class User(Base):
     phone = Column("phone", String, nullable=True)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
-
-    executor_services = relationship("Service", foreign_keys=[Service.executor_id], back_populates="executor",
-                                     cascade="all, delete-orphan")
+    executor_default_services = relationship("Service", foreign_keys=[Service.executor_default_id],
+                                             back_populates="executor_default", cascade="all, delete-orphan")
+    executor_additional_services = relationship("Service", foreign_keys=[Service.executor_additional_id],
+                                             back_populates="executor_additional", cascade="all, delete-orphan")
     customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer", cascade="all, delete-orphan")
     customer_company = relationship("Company", foreign_keys=[Company.user_id], back_populates="customer", cascade="all, delete-orphan", uselist=False)
     company_executor_default = relationship("Company", foreign_keys=[Company.executor_default_id], back_populates="executor_default", cascade="all, delete-orphan")

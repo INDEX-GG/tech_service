@@ -43,7 +43,7 @@ class ExecutorsList(CustomModel):
 
 class UserCompanyResponse(UserCompany):
     executor_default: ExecutorsList | None
-    executor_additional: ExecutorsList | None
+    executor_additional: ExecutorsList | None = None
 
 class CustomerUserResponse(CustomModel):
     id: int

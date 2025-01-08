@@ -14,8 +14,11 @@ from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUser
 
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:
-    select_query = select(User).where(User.id == user_id).options(
+    select_query = (select(User).where(User.id == user_id).options(
         selectinload(User.customer_company).selectinload(Company.contacts))
+                    .options(selectinload(User.customer_company).selectinload(Company.executor_default))
+                    .options(selectinload(User.customer_company).selectinload(Company.executor_additional)))
+
     model = await session.execute(select_query)
     user = model.scalar_one_or_none()
     return user

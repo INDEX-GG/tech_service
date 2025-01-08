@@ -21,14 +21,15 @@ async def create_new_service_by_admin(
         session: AsyncSession
 ) -> dict[str, Any] | None:
     try:
-        if customer_id == service_data.executor_id:
+        if customer_id in [service_data.executor_default_id, service_data.executor_additional_id]:
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
 
         customer = await get_user_profile_by_id(customer_id, session)
 
         new_service = Service(
             customer_id=customer_id,
-            executor_id=service_data.executor_id,
+            executor_default_id=service_data.executor_default_id,
+            executor_additional_id=service_data.executor_additional_id,
             company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
@@ -48,9 +49,13 @@ async def create_new_service_by_admin(
 
         new_service.customer = customer
 
-        if service_data.executor_id:
-            executor = await get_user_by_role(service_data.executor_id, "is_executor", session)
-            new_service.executor = executor
+        if service_data.executor_default_id:
+            executor = await get_user_by_role(service_data.executor_default_id, "is_executor", session)
+            new_service.executor_default = executor
+
+        if service_data.executor_additional_id:
+            executor = await get_user_by_role(service_data.executor_additional_id, "is_executor", session)
+            new_service.executor_additional = executor
 
         owner_type = OwnerTypes.CUSTOMER
 
@@ -144,19 +149,28 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         select_query = (select(Service)
                         .options(
             selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
-                        .options(selectinload(Service.executor))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_additional))
+                        .options(selectinload(Service.executor_additional))
+                        .options(selectinload(Service.executor_default))
                         .options(selectinload(Service.media_files))
                         .where(Service.id == assign_data.service_id)
                         )
         model = await session.execute(select_query)
         service = model.scalar_one_or_none()
 
-        service.executor_id = assign_data.executor_id
+        if assign_data.executor_default_id not in [False, None]:
+            service.executor_default_id = assign_data.executor_default_id
+        if assign_data.executor_additional_id is not False:
+            service.executor_additional_id = assign_data.executor_additional_id
+
         service.status = ServiceStatus.WORKING
         if not service.viewed_admin:
             service.viewed_admin = True
         service.viewed_customer = False
-        service.viewed_executor = False
+        service.viewed_executor_default = False
+        service.viewed_executor_additional= False
+
         service.deadline_at = assign_data.deadline_at.replace(tzinfo=None) if assign_data.deadline_at else None
         service.comment = assign_data.comment if assign_data.comment else None
 
@@ -166,6 +180,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
             service.custom_position = assign_data.custom_position
 
         await session.commit()
+        session.expire(service)
         await session.refresh(service)
 
         return service
@@ -231,11 +246,16 @@ async def mark_service_verifying(service_id: UUID, session: AsyncSession):
         await session.close()
 
 
-async def get_service_card_by_id(service_id: UUID, role: Roles, session: AsyncSession):
+async def get_service_card_by_id(service_id: UUID, role: Roles, user_id: int, session: AsyncSession):
     select_query = (select(Service)
                     .options(
         selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
-                    .options(selectinload(Service.executor))
+                    .options(
+        selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                    .options(
+        selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_additional))
+                    .options(selectinload(Service.executor_default))
+                    .options(selectinload(Service.executor_additional))
                     .options(selectinload(Service.media_files))
                     .where(Service.id == service_id)
                     )
@@ -253,8 +273,12 @@ async def get_service_card_by_id(service_id: UUID, role: Roles, session: AsyncSe
             await session.commit()
             await session.refresh(service)
     elif role == Roles.EXECUTOR:
-        if not service.viewed_executor:
-            service.viewed_executor = True
+        if not service.viewed_executor_default and service.executor_default.id == user_id:
+            service.viewed_executor_default = True
+            await session.commit()
+            await session.refresh(service)
+        if not service.viewed_executor_additional and service.executor_additional.id == user_id:
+            service.viewed_executor_additional = True
             await session.commit()
             await session.refresh(service)
 

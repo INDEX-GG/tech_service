@@ -24,7 +24,7 @@ async def get_service_card(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
-    service = await services.get_service_card_by_id(service_id, current_user.role, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role,current_user.user_id, session)
     return service
 
 
@@ -32,7 +32,8 @@ async def get_service_card(
              dependencies=[Depends(validate_admin_access)])
 async def create_new_service_by_admin(
         customer_id: int = Form(...),
-        executor_id: int = Form(None),
+        executor_default_id : int = Form(...),
+        executor_additional_id: int = Form(None),
         title: str = Form(...),
         description: str = Form(None),
         material_availability: bool = Form(None),
@@ -65,7 +66,8 @@ async def create_new_service_by_admin(
 
     service_data = ServiceCreateByAdminInput(
         customer_id=customer_id,
-        executor_id=executor_id,
+        executor_default_id=executor_default_id,
+        executor_additional_id=executor_additional_id,
         title=title,
         description=description,
         material_availability=material_availability,
@@ -203,7 +205,7 @@ async def mark_service_verifying_by_executor(
     if not marked_verifying:
         raise HTTPException(status_code=400, detail="Ошибка отправления заявки на контроль качества")
 
-    service = await services.get_service_card_by_id(service_id, current_user.role, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role, current_user.user_id, session)
 
     return service
 
