@@ -184,19 +184,14 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
         # Не забудьте закрыть сессию после выполнения операций
         await session.close()
 
-# TODO: баг при удалении, если таблица пустая
 async def delete_executor_default(session: AsyncSession) -> dict[str, Any] | None:
     try:
         delete_query = delete(ExecutorDefault)
-        result = await session.execute(delete_query)
-        affected_rows = result.rowcount
 
-        if affected_rows == 0:
-            raise NoResultFound()
-
+        await session.execute(delete_query)
         await session.commit()
-        print('Executor default deleted successfully')
 
+        print('Executor default deleted successfully')
     except Exception as e:
         print(f"Error deleting executor default: {e}")
         await session.rollback()
@@ -277,10 +272,19 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
 
 async def block_user(user_id: int, session: AsyncSession) -> bool:
     select_query = select(User).where(User.id == user_id)
-    model = await session.execute(select_query)
-    user = model.scalar_one_or_none()
+    model_user = await session.execute(select_query)
+    user = model_user.scalar_one_or_none()
+
+
 
     if user:
+        select_executor_default = select(ExecutorDefault).where(ExecutorDefault.executor_id == user_id)
+        model_executor_default = await session.execute(select_executor_default)
+        executor_default = model_executor_default.scalar_one_or_none()
+
+        if executor_default:
+            raise HTTPException(status_code=400, detail='Дежурный исполнитель не может быть удален')
+
         if user.is_active:
             user.is_active = False
             update_query = (
