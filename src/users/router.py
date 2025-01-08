@@ -154,13 +154,13 @@ async def create_new_executor(
 
 @router.post("/executor/default", status_code=status.HTTP_200_OK, response_model=ExecutorDefaultUserResponse, dependencies=[Depends(validate_admin_access)])
 async def assign_default_executor(
-        executor_id: int,
+        executor_data: ExecutorDefaultUserResponse,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
-    user = await users_service.get_user_by_role(executor_id, "is_executor", session)
+    user = await users_service.get_user_by_role(executor_data.executor_id, "is_executor", session)
 
     if user:
-        executor_default = await users_service.create_executor_default(executor_id, session)
+        executor_default = await users_service.create_executor_default(executor_data.executor_id, session)
         return executor_default
     else:
         raise HTTPException(status_code=400, detail="Ошибка изменения дежурного исполнителя")
