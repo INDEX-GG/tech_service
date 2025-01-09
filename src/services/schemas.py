@@ -11,7 +11,7 @@ from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 class ServiceCreateByAdminInput(CustomModel):
     customer_id: int
-    executor_default_id: int
+    executor_default_id: int | None = None
     executor_additional_id: int | None = None
     title: str
     description: str | None
@@ -108,7 +108,8 @@ class ServiceListedResponse(CustomModel):
     custom_position: bool
     viewed_admin: bool
     viewed_customer: bool
-    viewed_executor: bool
+    viewed_executor_default: bool
+    viewed_executor_additional: bool
     status: ServiceStatus
     created_at: datetime
     # updated_at: datetime | None = None
@@ -130,8 +131,9 @@ class CustomerServicesListPaginated(CustomModel):
 
 class ServiceUpdateInput(CustomModel):
     service_id: UUID
-    executor_id: int | None
     title: str | None
+    executor_default_id: int | None = None
+    executor_additional_id: int | None = None
     description: str | None
     material_availability: bool | None
     emergency: bool | None

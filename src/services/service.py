@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload, joinedload
 
 from src.models import Service, ServiceStatus, User, Company, OwnerTypes, Roles
 from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput, ServiceUpdateInput
-from src.users.service import get_user_profile_by_id, get_user_by_role
+from src.users.service import get_user_profile_by_id, get_user_by_role, get_user_executor_default
 from src.media import service as media_service
 
 
@@ -25,10 +25,11 @@ async def create_new_service_by_admin(
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
 
         customer = await get_user_profile_by_id(customer_id, session)
-
+        executor_default = await get_user_executor_default(session)
+        executor_default_id = executor_default.id if service_data.executor_default_id is None else service_data.executor_default_id
         new_service = Service(
             customer_id=customer_id,
-            executor_default_id=service_data.executor_default_id,
+            executor_default_id=executor_default_id,
             executor_additional_id=service_data.executor_additional_id,
             company_id=customer.customer_company.id,
             title=service_data.title,
@@ -40,7 +41,7 @@ async def create_new_service_by_admin(
             deadline_at=service_data.deadline_at,
             updated_at=func.now(),
             comment=service_data.comment,
-            status=ServiceStatus.NEW
+            status=ServiceStatus.WORKING
         )
 
         session.add(new_service)
@@ -49,9 +50,8 @@ async def create_new_service_by_admin(
 
         new_service.customer = customer
 
-        if service_data.executor_default_id:
-            executor = await get_user_by_role(service_data.executor_default_id, "is_executor", session)
-            new_service.executor_default = executor
+        executor = await get_user_by_role(executor_default_id, "is_executor", session)
+        new_service.executor_default = executor
 
         if service_data.executor_additional_id:
             executor = await get_user_by_role(service_data.executor_additional_id, "is_executor", session)
@@ -95,6 +95,7 @@ async def create_new_service_by_customer(
 ) -> dict[str, Any] | None:
     try:
         customer = await get_user_profile_by_id(customer_id, session)
+        executor_default = await get_user_executor_default(session)
 
         new_service = Service(
             customer_id=customer_id,
@@ -105,8 +106,9 @@ async def create_new_service_by_customer(
             emergency=service_data.emergency,
             viewed_customer=True,
             deadline_at=service_data.deadline_at,
+            executor_default_id=executor_default.id,
             updated_at=func.now(),
-            status=ServiceStatus.NEW
+            status=ServiceStatus.WORKING
         )
 
         session.add(new_service)
@@ -114,6 +116,7 @@ async def create_new_service_by_customer(
         await session.refresh(new_service)
 
         new_service.customer = customer
+        new_service.executor_default = executor_default
 
         owner_type = OwnerTypes.CUSTOMER
 
@@ -158,6 +161,10 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
                         )
         model = await session.execute(select_query)
         service = model.scalar_one_or_none()
+
+        if service not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
+            raise HTTPException(status_code=400, detail="Возможно изменять заявки "
+                                                        "находящиеся только в работа и контроле качества")
 
         if assign_data.executor_default_id not in [False, None]:
             service.executor_default_id = assign_data.executor_default_id
@@ -210,13 +217,15 @@ async def get_service_executor_id(service_id: UUID, session: AsyncSession):
     select_query = select(Service).where(Service.id == service_id)
     model = await session.execute(select_query)
     service = model.scalar_one_or_none()
-    service_executor_id = service.executor_id
+    service_executor_default_id = service.executor_default_id
+    service_executor_additional_id = service.executor_additional_id
     service_status = service.status
 
-    return service_executor_id, service_status
+    return service_executor_default_id, service_executor_additional_id, service_status
 
 
-async def mark_service_verifying(service_id: UUID, session: AsyncSession):
+async def mark_service_verifying(service_id: UUID, default_executor_id,
+                                 additional_executor_id, user_id, session: AsyncSession):
     try:
         # Update the Service status to VERIFYING
         update_query = (
@@ -226,7 +235,8 @@ async def mark_service_verifying(service_id: UUID, session: AsyncSession):
                 status=ServiceStatus.VERIFYING,
                 viewed_admin=False,
                 viewed_customer=False,
-                viewed_executor=True,
+                viewed_executor_default=True if default_executor_id == user_id else False,
+                viewed_executor_additional=True if additional_executor_id == user_id else False,
             )
         )
         await session.execute(update_query)
@@ -290,7 +300,12 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
         select_query = (select(Service)
                         .options(
             selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
-                        .options(selectinload(Service.executor))
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(
+            Company.executor_additional))
+                        .options(selectinload(Service.executor_additional))
+                        .options(selectinload(Service.executor_default))
                         .options(selectinload(Service.media_files))
                         .where(Service.id == service_id)
                         )
@@ -336,7 +351,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             .where(exists().where(
                 and_(
                     Service.company_id == Company.id,
-                    Service.executor_id == executor_id,
+                    or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
                     Company.id.in_(active_customer_subquery)
                 )
             ))
@@ -345,20 +360,56 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
         query = (
             select(
                 Company,
-                func.bool_or(Service.viewed_executor == False).label("marked"),
-                func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.executor_id == executor_id,
-                                    Service.viewed_executor == False), 1),
-                              else_=0)).label("working"),
-                func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.executor_id == executor_id,
-                                    Service.viewed_executor == False), 1),
-                              else_=0)).label("verifying"),
-                func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.executor_id == executor_id,
-                                    Service.viewed_executor == False), 1),
-                              else_=0)).label("closed"),
+                func.bool_or(or_(Service.viewed_executor_default == False, Service.viewed_executor_additional == False)).label("marked"),
+
+                func.sum(case((and_(
+                    Service.status == ServiceStatus.WORKING,
+                    or_(
+                        and_(
+                            Service.executor_default_id == executor_id,
+                            Service.viewed_executor_default == False
+                        ),
+                        and_(
+                            Service.executor_additional_id == executor_id,
+                            Service.viewed_executor_additional == False
+                        ),
+                    )
+                ), 1), else_=0)).label("working"),
+
+                func.sum(case((and_(
+                    Service.status == ServiceStatus.VERIFYING,
+                    or_(
+                        and_(
+                            Service.executor_default_id == executor_id,
+                            Service.viewed_executor_default == False
+                        ),
+                        and_(
+                            Service.executor_additional_id == executor_id,
+                            Service.viewed_executor_additional == False
+                        )
+                    )
+
+                ), 1), else_=0)).label("verifying"),
+
+                func.sum(case((and_(
+                    Service.status == ServiceStatus.CLOSED,
+                    or_(
+                        and_(
+                            Service.executor_default_id == executor_id,
+                            Service.viewed_executor_default == False
+                        ),
+                        and_(
+                            Service.executor_additional_id == executor_id,
+                            Service.viewed_executor_additional == False
+                        )
+                    )
+
+                ), 1), else_=0)).label("closed"),
+
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
-                Service.executor_id == executor_id,
+                or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
                 Company.id.in_(active_customer_subquery)
             ))
             .options(selectinload(Company.services))
@@ -454,8 +505,8 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
             .where(
                 Service.company_id == company_id,
                 Service.status == service_status,
-                Service.executor_id == executor_id,
-                Service.viewed_executor == False,
+                or_(and_(Service.executor_default_id == executor_id, Service.viewed_executor_default == False),
+                    and_(Service.executor_additional_id == executor_id, Service.viewed_executor_additional == False)),
                 or_(
                     and_(Service.emergency == True, emergency == True, custom_position == False),
                     and_(Service.custom_position == True, emergency == False, custom_position == True),
@@ -482,7 +533,7 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
             .where(
                 Service.company_id == company_id,
                 Service.status == service_status,
-                Service.executor_id == executor_id,
+                or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
                 or_(
                     and_(Service.emergency == True, emergency == True, custom_position == False),
                     and_(Service.custom_position == True, emergency == False, custom_position == True),
@@ -508,7 +559,7 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
             .where(
                 Service.company_id == company_id,
                 Service.status == service_status,
-                Service.executor_id == executor_id,
+                or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
                 or_(
                     and_(Service.emergency == True, emergency == True, custom_position == False),
                     and_(Service.custom_position == True, emergency == False, custom_position == True),
@@ -785,7 +836,12 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
     select_query = (select(Service)
                     .options(
         selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
-                    .options(selectinload(Service.executor))
+                    .options(
+        selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                    .options(
+        selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_additional))
+                    .options(selectinload(Service.executor_additional))
+                    .options(selectinload(Service.executor_default))
                     .options(selectinload(Service.media_files))
                     .where(Service.id == service_data.service_id)
                     )
@@ -793,7 +849,7 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
     result = await session.execute(select_query)
     service = result.scalar_one_or_none()
 
-    fields_to_update = ['executor_id', 'title', 'description', 'deadline_at', 'material_availability', 'emergency',
+    fields_to_update = ['executor_default_id', 'executor_additional_id', 'title', 'description', 'deadline_at', 'material_availability', 'emergency',
                         'custom_position', 'comment']
 
     if customer_id:
@@ -802,12 +858,15 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
         else:
             if service.status != ServiceStatus.NEW:
                 raise HTTPException(status_code=400, detail="Заказчик может изменять заявки только со статусом 'Новая'")
-        fields_to_update.remove('executor_id')  # Убираем возможность изменять исполнителя для Заказчика
+        fields_to_update.remove('executor_default_id')  # Убираем возможность изменять исполнителя для Заказчика
+        fields_to_update.remove('executor_additional_id')
         service.viewed_admin = False  # Непросмотрено админом
     else:
         service.viewed_customer = False  # Непросмотрено заказчиком
 
-    service.viewed_executor = False  # Непросмотрено исполнителем
+    service.viewed_executor_default = False  # Непросмотрено исполнителем
+    service.viewed_executor_additional = False
+
     print('fields_to_update', fields_to_update)
     if not service_data.description:
         service.description = None

@@ -133,8 +133,11 @@ class Company(Base):
             1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
 
     def new_services_count_executor(self, executor_id):
-        return sum(1 for service in self.services if (
-                service.status == ServiceStatus.WORKING and service.viewed_executor == False and service.executor_id == executor_id))
+        return sum(1 for service in self.services if
+                   (service.status == ServiceStatus.WORKING and service.viewed_executor_default == False and service.executor_default_id == executor_id)
+                   or
+                   (service.status == ServiceStatus.WORKING and service.viewed_executor_additional == False and service.executor_additional_id == executor_id))
+
 
 
 class User(Base):
