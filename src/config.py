@@ -12,6 +12,7 @@ load_dotenv()
 class Config(BaseSettings):
     DATABASE_URL: PostgresDsn
 
+    APP_NAME: str
     SITE_DOMAIN: str = "myapp.com"
 
     ENVIRONMENT: Environment = Environment.PRODUCTION

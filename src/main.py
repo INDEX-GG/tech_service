@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=settings.CORS_HEADERS,
 )
 
-app.openapi_url = "/tech_service_test/openapi.json"
+app.openapi_url = f"/{settings.APP_NAME}/openapi.json"
 
 #@app.get("/healthcheck", include_in_schema=False)
 #async def healthcheck() -> dict[str, str]:
