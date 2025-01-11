@@ -1,0 +1,35 @@
+version: '3.9'
+
+services:
+  test_tech_service_db_host:
+    container_name: test_tech_service_db
+    hostname: test_tech_service_db_host
+    image: postgres:15
+    env_file:
+      - .env
+    volumes:
+      - test_app_pg_data:/var/lib/postgresql/data
+      - test_app_pg_data_backups:/backups
+      - ./scripts/postgres:/scripts
+    command: -p 5434
+    expose:
+      - 5434
+
+  test_tech_service_app:
+    container_name: test_tech_service
+    image: test_tech_service_image
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/src
+    ports:
+      - "5953:8000"
+    depends_on:
+      - test_tech_service_db_host
+
+volumes:
+  test_app_pg_data:
+  test_app_pg_data_backups:
