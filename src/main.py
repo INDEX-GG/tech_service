@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.config import app_configs, settings
+from src.config import app_configs, settings, DEFAULT_SUB_DOMAIN
 from src.database import create_tables
 from src.routers import api_router
 # from src.auth.router import router as auth_router
@@ -26,7 +26,8 @@ app.add_middleware(
     allow_headers=settings.CORS_HEADERS,
 )
 
-app.openapi_url = f"/{settings.APP_NAME}/openapi.json"
+APP_DOMAIN = settings.SUB_DOMAIN if settings.SUB_DOMAIN != DEFAULT_SUB_DOMAIN else ""
+app.openapi_url = f"{APP_DOMAIN}/openapi.json"
 
 #@app.get("/healthcheck", include_in_schema=False)
 #async def healthcheck() -> dict[str, str]:
