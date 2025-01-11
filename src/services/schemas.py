@@ -11,7 +11,8 @@ from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 class ServiceCreateByAdminInput(CustomModel):
     customer_id: int
-    executor_id: int | None = None
+    executor_default_id: int | None = None
+    executor_additional_id: int | None = None
     title: str
     description: str | None
     material_availability: bool
@@ -39,7 +40,8 @@ class MediaFilesResponse(BaseModel):
 class ServiceResponse(CustomModel):
     id: UUID
     customer_id: int
-    executor_id: int | None
+    executor_default_id: int
+    executor_additional_id: int | None = None
     title: str
     description: str | None
     material_availability: bool | None
@@ -50,13 +52,15 @@ class ServiceResponse(CustomModel):
     status: ServiceStatus
     comment: str | None
     customer: CustomerUserResponse
-    executor: ExecutorUserResponse | None = None
+    executor_default: ExecutorUserResponse
+    executor_additional: ExecutorUserResponse | None = None
     media_files: List[MediaFilesResponse] | None = None
 
 
 class ServiceAssignInput(CustomModel):
     service_id: UUID
-    executor_id: int
+    executor_default_id: int = False
+    executor_additional_id: int | None = False
     deadline_at: datetime | None
     comment: str | None = None
     emergency: bool | None = None
@@ -104,7 +108,8 @@ class ServiceListedResponse(CustomModel):
     custom_position: bool
     viewed_admin: bool
     viewed_customer: bool
-    viewed_executor: bool
+    viewed_executor_default: bool
+    viewed_executor_additional: bool
     status: ServiceStatus
     created_at: datetime
     # updated_at: datetime | None = None
@@ -126,8 +131,9 @@ class CustomerServicesListPaginated(CustomModel):
 
 class ServiceUpdateInput(CustomModel):
     service_id: UUID
-    executor_id: int | None
     title: str | None
+    executor_default_id: int | None = None
+    executor_additional_id: int | None = None
     description: str | None
     material_availability: bool | None
     emergency: bool | None

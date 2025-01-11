@@ -14,6 +14,8 @@ class UserCompany(CustomModel):
     id: UUID
     name: str
     address: str | None
+    executor_default_id: int
+    executor_additional_id: int | None
     opening_time: str | None
     closing_time: str | None
     only_weekdays: bool
@@ -32,15 +34,21 @@ class UserResponse(CustomModel):
     phone: str | None
     customer_company: UserCompany | None
 
+class ExecutorsList(CustomModel):
+    id: int
+    name: str | None
+    phone: str | None
+    username: str
+
+class UserCompanyResponse(UserCompany):
+    executor_default: ExecutorsList | None
+    executor_additional: ExecutorsList | None = None
 
 class CustomerUserResponse(CustomModel):
     id: int
     username: str
     password: str
-    # is_active: bool
-    # name: str | None
-    # phone: str | None
-    customer_company: UserCompany | None
+    customer_company: UserCompanyResponse | None
 
 
 class CustomerShortCompany(CustomModel):
@@ -52,13 +60,6 @@ class CustomerShortCompany(CustomModel):
 class CustomersList(CustomModel):
     id: int
     customer_company: CustomerShortCompany | None
-
-
-class ExecutorsList(CustomModel):
-    id: int
-    name: str | None
-    phone: str | None
-    username: str
 
 
 class CustomersListPaginated(CustomModel):
@@ -73,6 +74,9 @@ class ExecutorUserResponse(CustomModel):
     is_active: bool
     name: str | None
     phone: str | None  # TODO: Check could it be None?
+
+class ExecutorDefaultUserResponse(CustomModel):
+    executor_id: int
 
 
 class ExecutorsListPaginated(CustomModel):
@@ -99,6 +103,8 @@ class CreateCustomerInput(CustomModel):
     address: str
     opening_time: str
     closing_time: str
+    executor_default_id: int
+    executor_additional_id: int = None
     only_weekdays: bool
     contacts: List[CustomerContacts]
 
@@ -119,6 +125,9 @@ class EditCustomerCompany(CustomModel):
     opening_time: str = None
     closing_time: str = None
     only_weekdays: bool = None
+    executor_default_id: int = False
+    executor_additional_id: int | None = False
+
 
 
 class EditCustomerContacts(CustomModel):

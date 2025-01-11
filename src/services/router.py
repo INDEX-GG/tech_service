@@ -24,7 +24,7 @@ async def get_service_card(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
-    service = await services.get_service_card_by_id(service_id, current_user.role, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role,current_user.user_id, session)
     return service
 
 
@@ -32,7 +32,8 @@ async def get_service_card(
              dependencies=[Depends(validate_admin_access)])
 async def create_new_service_by_admin(
         customer_id: int = Form(...),
-        executor_id: int = Form(None),
+        executor_default_id : int = Form(None),
+        executor_additional_id: int = Form(None),
         title: str = Form(...),
         description: str = Form(None),
         material_availability: bool = Form(None),
@@ -65,7 +66,8 @@ async def create_new_service_by_admin(
 
     service_data = ServiceCreateByAdminInput(
         customer_id=customer_id,
-        executor_id=executor_id,
+        executor_default_id=executor_default_id,
+        executor_additional_id=executor_additional_id,
         title=title,
         description=description,
         material_availability=material_availability,
@@ -159,13 +161,13 @@ async def mark_service_verifying_by_executor(
     if not any([current_user.is_admin, current_user.is_executor]):
         raise AuthorizationFailed()
 
-    service_executor_id, service_status = await services.get_service_executor_id(service_id, session)
+    service_default_executor_id, service_additional_executor_id, service_status = await services.get_service_executor_id(service_id, session)
 
-    if not service_executor_id:
+    if not service_default_executor_id or not service_additional_executor_id:
         raise HTTPException(status_code=400, detail="У заявки должен быть назначен исполнитель")
 
     if not current_user.is_admin:
-        if int(current_user.user_id) != int(service_executor_id):
+        if int(current_user.user_id) not in [int(service_default_executor_id), int(service_additional_executor_id)]:
             raise AuthorizationFailed()
 
     if service_status != ServiceStatus.WORKING:
@@ -199,11 +201,12 @@ async def mark_service_verifying_by_executor(
     if image_files:
         await media_service.save_images(image_files=image_files, service_id=service_id, owner_type=owner_type)
 
-    marked_verifying = await services.mark_service_verifying(service_id, session)
+    marked_verifying = await services.mark_service_verifying(service_id,service_default_executor_id,
+                                                             service_additional_executor_id, current_user.user_id, session)
     if not marked_verifying:
         raise HTTPException(status_code=400, detail="Ошибка отправления заявки на контроль качества")
 
-    service = await services.get_service_card_by_id(service_id, current_user.role, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role, current_user.user_id, session)
 
     return service
 
@@ -369,7 +372,8 @@ async def delete_service_by_id(
               dependencies=[Depends(validate_admin_and_customer_access)])
 async def edit_service_by_customer(
         service_id: uuid.UUID,
-        executor_id: int = Form(None),
+        executor_default_id: int = Form(None),
+        executor_additional_id: int = Form(None),
         title: str = Form(None),
         description: str = Form(None),
         material_availability: bool = Form(None),
@@ -415,8 +419,9 @@ async def edit_service_by_customer(
 
     service_data = ServiceUpdateInput(
         service_id=service_id,
-        executor_id=executor_id,
         title=title,
+        executor_default_id=executor_default_id,
+        executor_additional_id=executor_additional_id,
         description=description,
         material_availability=material_availability,
         emergency=emergency,

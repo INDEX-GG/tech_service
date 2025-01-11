@@ -8,14 +8,17 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Company, CompanyContacts, User, Roles, RefreshTokens
+from src.models import Company, CompanyContacts, User, Roles, RefreshTokens, ExecutorDefault
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
     EditCustomerCompany, EditCustomerContacts
 
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:
-    select_query = select(User).where(User.id == user_id).options(
+    select_query = (select(User).where(User.id == user_id).options(
         selectinload(User.customer_company).selectinload(Company.contacts))
+                    .options(selectinload(User.customer_company).selectinload(Company.executor_default))
+                    .options(selectinload(User.customer_company).selectinload(Company.executor_additional)))
+
     model = await session.execute(select_query)
     user = model.scalar_one_or_none()
     return user
@@ -33,6 +36,21 @@ async def get_user_by_role(user_id: int, role: str, session: AsyncSession) -> di
     user = await session.execute(select_query)
     response = user.scalar_one_or_none()
     return response
+
+async def get_user_executor_default(session: AsyncSession) -> dict[str, Any] | None:
+    try:
+        select_query = select(ExecutorDefault)
+
+        executor_default = await session.execute(select_query)
+        executor_default_dict = executor_default.scalars().first()
+
+        if executor_default_dict:
+            return await get_user_profile_by_id(executor_default_dict.executor_id, session)
+    except Exception as e:
+        print(f"Error get executor default: {e}")
+        return None
+
+
 
 
 async def get_customers(search: str, offset: int, limit: int, session: AsyncSession) -> dict[str, Any] | None:
@@ -61,7 +79,7 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
 
     select_query = (
         select(User.id, Company.id, Company.name, Company.address)
-        .join(Company)
+        .join(Company, User.id == Company.user_id)
         .where(base_condition, User.is_active)
         .order_by(desc(User.created_at))
         .offset(offset)
@@ -166,6 +184,41 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
         # Не забудьте закрыть сессию после выполнения операций
         await session.close()
 
+async def delete_executor_default(session: AsyncSession) -> dict[str, Any] | None:
+    try:
+        delete_query = delete(ExecutorDefault)
+
+        await session.execute(delete_query)
+        await session.commit()
+
+        print('Executor default deleted successfully')
+    except Exception as e:
+        print(f"Error deleting executor default: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка удаления дежурного исполнителя")
+
+    finally:
+        await session.close()
+
+async def create_executor_default(executor_id: int, session: AsyncSession) -> dict[str, Any] | None:
+    await delete_executor_default(session)
+
+    try:
+        executor_default = ExecutorDefault(executor_id=executor_id)
+
+        session.add(executor_default)
+        await session.commit()
+        await session.refresh(executor_default)
+
+        return executor_default
+    except Exception as e:
+        # Обработка ошибок
+        print(f"Error creating default executor: {e}")
+        await session.rollback()
+        return None
+    finally:
+        # Не забудьте закрыть сессию после выполнения операций
+        await session.close()
 
 async def create_customer(customer_data: CreateCustomerInput, session: AsyncSession) -> dict[str, Any] | None:
     try:
@@ -185,6 +238,8 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
             user_id=customer.id,
             name=customer_data.name,
             address=customer_data.address,
+            executor_default_id=customer_data.executor_default_id,
+            executor_additional_id=customer_data.executor_additional_id,
             opening_time=customer_data.opening_time,
             closing_time=customer_data.closing_time,
             only_weekdays=customer_data.only_weekdays,
@@ -217,10 +272,19 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
 
 async def block_user(user_id: int, session: AsyncSession) -> bool:
     select_query = select(User).where(User.id == user_id)
-    model = await session.execute(select_query)
-    user = model.scalar_one_or_none()
+    model_user = await session.execute(select_query)
+    user = model_user.scalar_one_or_none()
+
+
 
     if user:
+        select_executor_default = select(ExecutorDefault).where(ExecutorDefault.executor_id == user_id)
+        model_executor_default = await session.execute(select_executor_default)
+        executor_default = model_executor_default.scalar_one_or_none()
+
+        if executor_default:
+            raise HTTPException(status_code=400, detail='Дежурный исполнитель не может быть удален')
+
         if user.is_active:
             user.is_active = False
             update_query = (
@@ -291,6 +355,10 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
             company.name = company_data.name
         if company_data.address:
             company.address = company_data.address
+        if company_data.executor_default_id not in [False, None]:
+            company.executor_default_id = company_data.executor_default_id
+        if company_data.executor_additional_id is not False:
+            company.executor_additional_id = company_data.executor_additional_id
         if company_data.opening_time:
             company.opening_time = company_data.opening_time
         if company_data.closing_time:

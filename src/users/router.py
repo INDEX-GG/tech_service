@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
@@ -22,8 +22,13 @@ from src.users.schemas import (
     EditUserPersonalData,
     ExecutorsListPaginated,
     ExecutorUserResponse,
-    UserResponse, EditCustomerContacts, CompanyContacts,
+    UserResponse,
+    EditCustomerContacts,
+    CompanyContacts,
+    ExecutorsList,
+    ExecutorDefaultUserResponse
 )
+from src.users.service import get_user_profile_by_id, get_company_by_id
 
 router = APIRouter()
 
@@ -45,11 +50,14 @@ async def get_customer_account(
 ) -> dict[str, Any]:
     role = "is_customer"
     user = await users_service.get_user_by_role(user_id, role, session)
+    company = user.customer_company;
 
     if user:
+        company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+        company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
         return user
     else:
-        raise HTTPException(status_code=404, detail="Пользователь на найден")
+        raise HTTPException(status_code=404, detail="Заказчик не найден")
 
 
 @router.get("/executor/{user_id}", response_model=ExecutorUserResponse, dependencies=[Depends(validate_admin_access)])
@@ -63,7 +71,17 @@ async def get_executor_account(
     if user:
         return user
     else:
-        raise HTTPException(status_code=404, detail="Пользователь на найден")
+        raise HTTPException(status_code=404, detail="Исполнитель не найден")
+
+@router.get("/executor_default", response_model=ExecutorsList, dependencies=[Depends(validate_admin_access)])
+async def get_executor_default_account(
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    user = await users_service.get_user_executor_default(session)
+    if user:
+        return user
+    else:
+        raise HTTPException(status_code=404, detail="Дежурный исполнитель не найден")
 
 
 @router.get("/customers/all", response_model=CustomersListPaginated, dependencies=[Depends(validate_admin_access)])
@@ -108,6 +126,9 @@ async def create_new_customer(
     if customer:
         role = "is_customer"
         user = await users_service.get_user_by_role(customer.id, role, session)
+        company = user.customer_company
+        company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+        company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
         if user:
             return user
         else:
@@ -121,7 +142,6 @@ async def create_new_executor(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     user = await auth_service.get_user_by_username(executor_data.username, session)
-    print(user)
     if user:
         raise UsernameTaken()
 
@@ -131,6 +151,19 @@ async def create_new_executor(
         return executor
     else:
         raise HTTPException(status_code=400, detail="Ошибка создания Исполнителя")
+
+@router.post("/executor/default", status_code=status.HTTP_200_OK, response_model=ExecutorDefaultUserResponse, dependencies=[Depends(validate_admin_access)])
+async def assign_default_executor(
+        executor_data: ExecutorDefaultUserResponse,
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    user = await users_service.get_user_by_role(executor_data.executor_id, "is_executor", session)
+
+    if user:
+        executor_default = await users_service.create_executor_default(executor_data.executor_id, session)
+        return executor_default
+    else:
+        raise HTTPException(status_code=400, detail="Ошибка изменения дежурного исполнителя")
 
 
 @router.delete("/block/{user_id}", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(validate_admin_access)])
@@ -234,6 +267,8 @@ async def edit_company_data(
         if user.customer_company:
             company_id = user.customer_company.id
             company = await users_service.edit_users_company(company_id, company_data, session)
+            company.executor_default = await get_user_profile_by_id(company.executor_default_id, session)
+            company.executor_additional = await get_user_profile_by_id(company.executor_additional_id, session)
 
             if company:
                 user.customer_company = company
