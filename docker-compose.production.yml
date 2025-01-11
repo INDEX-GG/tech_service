@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   tech_service_db_host:
     container_name: tech_service_db
