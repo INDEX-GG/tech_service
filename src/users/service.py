@@ -234,11 +234,14 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
         await session.commit()
         await session.refresh(customer)
 
+        executor_default = await get_user_executor_default(session)
+        executor_default_id = executor_default.id if customer_data.executor_default_id is None else customer_data.executor_default_id
+
         customer_company = Company(
             user_id=customer.id,
             name=customer_data.name,
             address=customer_data.address,
-            executor_default_id=customer_data.executor_default_id,
+            executor_default_id=executor_default_id,
             executor_additional_id=customer_data.executor_additional_id,
             opening_time=customer_data.opening_time,
             closing_time=customer_data.closing_time,
