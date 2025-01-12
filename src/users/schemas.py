@@ -4,6 +4,13 @@ from uuid import UUID
 from src.models import CustomModel, Roles
 
 
+class ExecutorsList(CustomModel):
+    id: int
+    name: str | None
+    phone: str | None
+    username: str
+
+
 class CompanyContacts(CustomModel):
     id: UUID
     phone: str
@@ -14,8 +21,8 @@ class UserCompany(CustomModel):
     id: UUID
     name: str
     address: str | None
-    executor_default_id: int
-    executor_additional_id: int | None
+    executor_default: ExecutorsList | None
+    executor_additional: ExecutorsList | None = None
     opening_time: str | None
     closing_time: str | None
     only_weekdays: bool
@@ -34,11 +41,6 @@ class UserResponse(CustomModel):
     phone: str | None
     customer_company: UserCompany | None
 
-class ExecutorsList(CustomModel):
-    id: int
-    name: str | None
-    phone: str | None
-    username: str
 
 class UserCompanyResponse(UserCompany):
     executor_default: ExecutorsList | None
