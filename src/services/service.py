@@ -27,10 +27,14 @@ async def create_new_service_by_admin(
         customer = await get_user_profile_by_id(customer_id, session)
         executor_default = await get_user_executor_default(session)
         executor_default_id = executor_default.id if service_data.executor_default_id is None else service_data.executor_default_id
+
+        default_executor_id = customer.customer_company.executor_additional_id \
+            if service_data.executor_additional_id is None else service_data.executor_additional_id
+
         new_service = Service(
             customer_id=customer_id,
             executor_default_id=executor_default_id,
-            executor_additional_id=service_data.executor_additional_id,
+            executor_additional_id=default_executor_id,
             company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
@@ -96,6 +100,7 @@ async def create_new_service_by_customer(
     try:
         customer = await get_user_profile_by_id(customer_id, session)
         executor_default = await get_user_executor_default(session)
+        default_executor_id = customer.customer_company.executor_additional_id
 
         new_service = Service(
             customer_id=customer_id,
@@ -107,6 +112,7 @@ async def create_new_service_by_customer(
             viewed_customer=True,
             deadline_at=service_data.deadline_at,
             executor_default_id=executor_default.id,
+            executor_additional_id=default_executor_id,
             updated_at=func.now(),
             status=ServiceStatus.WORKING
         )
