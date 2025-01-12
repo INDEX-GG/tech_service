@@ -11,7 +11,8 @@ from src.auth.jwt import validate_admin_access, validate_customer_access, parse_
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
-    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput
+    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
+    ServicesListPaginatedSpecial
 from src.services import service as services
 from src.media import service as media_service
 
@@ -247,7 +248,7 @@ async def get_all_companies(
     return response
 
 
-@router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginated)
+@router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginatedSpecial)
 async def get_all_company_services_by_status(
         company_id: uuid.UUID,
         value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),

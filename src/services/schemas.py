@@ -118,10 +118,32 @@ class ServiceListedResponse(CustomModel):
     # executor: ExecutorModel | None = None
 
 
+class ServiceListedResponseSpecial(CustomModel):
+    id: UUID
+    title: str
+    emergency: bool
+    custom_position: bool
+    viewed_admin: bool
+    viewed_customer: bool
+    viewed_executor: bool | None = None
+    status: ServiceStatus
+    created_at: datetime
+    # updated_at: datetime | None = None
+    deadline_at: datetime | None = None
+    # executor: ExecutorModel | None = None
+
+
 class ServicesListPaginated(CustomModel):
     total: int
     counter: int
     items: List[ServiceListedResponse]
+
+
+class ServicesListPaginatedSpecial(CustomModel):
+    total: int
+    counter: int
+    items: List[ServiceListedResponseSpecial]
+
 
 
 class CustomerServicesListPaginated(CustomModel):
