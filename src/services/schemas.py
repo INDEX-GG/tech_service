@@ -110,6 +110,7 @@ class ServiceListedResponse(CustomModel):
     viewed_customer: bool
     viewed_executor_default: bool
     viewed_executor_additional: bool
+    viewed_executor: bool | None
     status: ServiceStatus
     created_at: datetime
     # updated_at: datetime | None = None

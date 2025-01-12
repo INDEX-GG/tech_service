@@ -501,7 +501,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
 async def get_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int,
                                  emergency: bool, custom_position: bool, session: AsyncSession,
-                                 executor_id: int = None):
+                                 executor_id: int = None, user_id: int = None):
     offset = (page - 1) * limit
 
     if executor_id:
@@ -685,6 +685,13 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
 
     # Получаем все объекты Company из результата
     services = result.scalars().all()
+
+    for service in services:
+        service.viewed_executor = None
+        if service.executor_default_id == user_id:
+            service.viewed_executor = service.viewed_executor_default
+        if service.executor_additional_id == user_id:
+            service.viewed_executor = service.viewed_executor_additional
 
     return services, total, total_unviewed
 
