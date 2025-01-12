@@ -32,7 +32,8 @@ settings = Config()
 
 app_configs: dict[str, Any] = {
     "title": "App API",
-    "version": settings.VERSION
+    "version": settings.VERSION,
+    "url": settings.SUB_DOMAIN, "description": "Base API"
 }
 
 # if not settings.ENVIRONMENT.is_debug:
