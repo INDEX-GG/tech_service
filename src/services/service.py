@@ -177,7 +177,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         if assign_data.executor_additional_id is not False:
             service.executor_additional_id = assign_data.executor_additional_id
 
-        # service.status = ServiceStatus.WORKING
+        service.status = ServiceStatus.WORKING
         if not service.viewed_admin:
             service.viewed_admin = True
         service.viewed_customer = False
