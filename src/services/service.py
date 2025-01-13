@@ -168,7 +168,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         model = await session.execute(select_query)
         service = model.scalar_one_or_none()
 
-        if service not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
+        if service.status not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
             raise HTTPException(status_code=400, detail="Возможно изменять заявки "
                                                         "находящиеся только в работа и контроле качества")
 
@@ -177,7 +177,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         if assign_data.executor_additional_id is not False:
             service.executor_additional_id = assign_data.executor_additional_id
 
-        service.status = ServiceStatus.WORKING
+        # service.status = ServiceStatus.WORKING
         if not service.viewed_admin:
             service.viewed_admin = True
         service.viewed_customer = False
