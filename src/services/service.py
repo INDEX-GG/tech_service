@@ -869,8 +869,9 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
         if service.customer_id != customer_id:
             raise HTTPException(status_code=400, detail="Заказчик может изменять только свои заявки")
         else:
-            if service.status != ServiceStatus.NEW:
-                raise HTTPException(status_code=400, detail="Заказчик может изменять заявки только со статусом 'Новая'")
+            if service.status not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
+            # if service.status != ServiceStatus.NEW:
+                raise HTTPException(status_code=400, detail="Заказчик может изменять заявки только со статусом 'В работе и Контроль качества'")
         fields_to_update.remove('executor_default_id')  # Убираем возможность изменять исполнителя для Заказчика
         fields_to_update.remove('executor_additional_id')
         service.viewed_admin = False  # Непросмотрено админом
