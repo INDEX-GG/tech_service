@@ -13,7 +13,9 @@ from fastapi.responses import FileResponse
 # app = FastAPI(**app_configs, root_path="/api/v2")
 
 app = FastAPI(**app_configs)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 app.include_router(api_router)
 
@@ -28,6 +30,9 @@ app.add_middleware(
 
 APP_DOMAIN = settings.SUB_DOMAIN if settings.SUB_DOMAIN != DEFAULT_SUB_DOMAIN else ""
 app.openapi_url = f"{APP_DOMAIN}/openapi.json"
+app.servers = [
+    {"url": settings.SUB_DOMAIN, "description": "Base API"}
+]
 
 #@app.get("/healthcheck", include_in_schema=False)
 #async def healthcheck() -> dict[str, str]:
