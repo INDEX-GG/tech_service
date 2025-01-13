@@ -8,11 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import service
 from src.auth.exceptions import RefreshTokenNotValid, UsernameTaken
 from src.auth.schemas import AuthUser
-from src.config import settings
 from src.database import get_async_session, engine
 from src.users.service import get_user_profile_by_id
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.SUB_DOMAIN}/api/v2/auth/tokens", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v2/auth/tokens", auto_error=False)
 
 
 async def valid_user_create(user: AuthUser) -> AuthUser:
