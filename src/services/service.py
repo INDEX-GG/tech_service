@@ -25,16 +25,17 @@ async def create_new_service_by_admin(
             raise ValueError("Вы не можете назначить исполнение заявки заказчику")
 
         customer = await get_user_profile_by_id(customer_id, session)
-        executor_default = await get_user_executor_default(session)
-        executor_default_id = executor_default.id if service_data.executor_default_id is None else service_data.executor_default_id
 
-        default_executor_id = customer.customer_company.executor_additional_id \
-            if service_data.executor_additional_id is None else service_data.executor_additional_id
+        executor_default = customer.customer_company.executor_default_id
+        executor_default_id = executor_default if service_data.executor_default_id is None else service_data.executor_default_id
+
+        executor_additional = customer.customer_company.executor_additional_id
+        executor_additional_id = executor_additional if service_data.executor_additional_id is None else service_data.executor_additional_id
 
         new_service = Service(
             customer_id=customer_id,
             executor_default_id=executor_default_id,
-            executor_additional_id=default_executor_id,
+            executor_additional_id=executor_additional_id,
             company_id=customer.customer_company.id,
             title=service_data.title,
             description=service_data.description,
@@ -57,8 +58,8 @@ async def create_new_service_by_admin(
         executor = await get_user_by_role(executor_default_id, "is_executor", session)
         new_service.executor_default = executor
 
-        if service_data.executor_additional_id:
-            executor = await get_user_by_role(service_data.executor_additional_id, "is_executor", session)
+        if executor_additional_id:
+            executor = await get_user_by_role(executor_additional_id, "is_executor", session)
             new_service.executor_additional = executor
 
         owner_type = OwnerTypes.CUSTOMER
@@ -99,8 +100,8 @@ async def create_new_service_by_customer(
 ) -> dict[str, Any] | None:
     try:
         customer = await get_user_profile_by_id(customer_id, session)
-        executor_default = await get_user_executor_default(session)
-        default_executor_id = customer.customer_company.executor_additional_id
+        executor_default_id = customer.customer_company.executor_default_id
+        executor_additional_id = customer.customer_company.executor_additional_id
 
         new_service = Service(
             customer_id=customer_id,
@@ -111,8 +112,8 @@ async def create_new_service_by_customer(
             emergency=service_data.emergency,
             viewed_customer=True,
             deadline_at=service_data.deadline_at,
-            executor_default_id=executor_default.id,
-            executor_additional_id=default_executor_id,
+            executor_default_id=executor_default_id,
+            executor_additional_id=executor_additional_id,
             updated_at=func.now(),
             status=ServiceStatus.WORKING
         )
@@ -122,7 +123,13 @@ async def create_new_service_by_customer(
         await session.refresh(new_service)
 
         new_service.customer = customer
-        new_service.executor_default = executor_default
+
+        executor = await get_user_by_role(executor_default_id, "is_executor", session)
+        new_service.executor_default = executor
+
+        if executor_additional_id:
+            executor = await get_user_by_role(executor_additional_id, "is_executor", session)
+            new_service.executor_additional = executor
 
         owner_type = OwnerTypes.CUSTOMER
 
@@ -358,7 +365,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                 and_(
                     Service.company_id == Company.id,
                     or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
-                    Company.id.in_(active_customer_subquery)
+                    Company.id.in_(active_customer_subquery),
+                    executor_id is not None
                 )
             ))
         )
@@ -373,11 +381,13 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False
-                        ),
+                            Service.viewed_executor_default == False,
+                            executor_id is not None
+                ),
                         and_(
                             Service.executor_additional_id == executor_id,
-                            Service.viewed_executor_additional == False
+                            Service.viewed_executor_additional == False,
+                            executor_id is not None
                         ),
                     )
                 ), 1), else_=0)).label("working"),
@@ -387,11 +397,13 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False
+                            Service.viewed_executor_default == False,
+                            executor_id is not None
                         ),
                         and_(
                             Service.executor_additional_id == executor_id,
-                            Service.viewed_executor_additional == False
+                            Service.viewed_executor_additional == False,
+                            executor_id is not None
                         )
                     )
 
@@ -402,11 +414,13 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False
+                            Service.viewed_executor_default == False,
+                            executor_id is not None
                         ),
                         and_(
                             Service.executor_additional_id == executor_id,
-                            Service.viewed_executor_additional == False
+                            Service.viewed_executor_additional == False,
+                            executor_id is not None
                         )
                     )
 
@@ -416,7 +430,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
                 or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
-                Company.id.in_(active_customer_subquery)
+                Company.id.in_(active_customer_subquery),
+                executor_id is not None
             ))
             .options(selectinload(Company.services))
             .group_by(Company.id)  # Группируем по компании
