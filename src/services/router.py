@@ -12,7 +12,7 @@ from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
     CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
-    ServicesListPaginatedSpecial
+    ServicesListPaginatedSpecial, ServiceAssignInputRequest
 from src.services import service as services
 from src.media import service as media_service
 
@@ -140,7 +140,7 @@ async def create_new_service(
 @router.post("/assign", status_code=status.HTTP_200_OK, response_model=ServiceResponse,
              dependencies=[Depends(validate_admin_access)])
 async def assign_executor(
-        assign_data: ServiceAssignInput,
+        assign_data: ServiceAssignInputRequest,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     attached_service = await services.assign_executor_to_service(assign_data, session)
@@ -264,7 +264,7 @@ async def get_all_company_services_by_status(
     Получение списка заявок по статусу с пагинацией для администратора и исполнителя
 
     Параметры:
-    - value: Статус заявки (new|working|verifying|closed).
+    - value: Статус заявки (working|verifying|closed).
     - sort: Сортировка.
     - page: Страница.
     - limit: Кол-во заявок на одной странице.
@@ -280,7 +280,6 @@ async def get_all_company_services_by_status(
     executor_id = int(current_user.user_id) if current_user.is_executor else None
 
     status_mapping = {
-        'new': ServiceStatus.NEW,
         'working': ServiceStatus.WORKING,
         'verifying': ServiceStatus.VERIFYING,
         'closed': ServiceStatus.CLOSED,

@@ -66,6 +66,9 @@ class ServiceAssignInput(CustomModel):
     emergency: bool | None = None
     custom_position: bool | None = None
 
+class ServiceAssignInputRequest(ServiceAssignInput):
+    is_edit: bool = False
+
 
 class VideoAndImageInput(BaseModel):
     video_file: Optional[UploadFile] = File(None)
