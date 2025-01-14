@@ -44,7 +44,7 @@ class CustomModel(BaseModel):
 
 
 class ServiceStatus(Enum):
-    NEW = "Новая"
+    NEW = "Новая" # @deprecated
     WORKING = "В работе"
     VERIFYING = "Контроль качества"
     CLOSED = "Закрыта"
