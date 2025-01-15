@@ -358,45 +358,33 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
             company.name = company_data.name
         if company_data.address:
             company.address = company_data.address
-        if company_data.executor_default_id not in [False, None, company.executor_default_id]:
-            company.executor_default_id = company_data.executor_default_id
+        if company_data.executor_default_id != company.executor_default_id:
             update_query = (
                 update(Service)
                 .values(
                     executor_default_id=company_data.executor_default_id,
-                    status=ServiceStatus.WORKING,
                     viewed_executor_default=False,
                     updated_at=func.now()
                 )
-                .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
+                .where(Service.company_id == company_id, Service.executor_default_id == company.executor_default_id,
+                       Service.status not in [ServiceStatus.CLOSED]) # TODO: добавить поддержку статуса 'Отказ'
             )
             await execute(update_query)
-        if company_data.executor_additional_id  not in [False, company.executor_additional_id]:
-            company.executor_additional_id = company_data.executor_additional_id
-            if company_data.executor_additional_id is not None:
-                update_query = (
-                    update(Service)
-                    .values(
-                        executor_additional_id=company_data.executor_additional_id,
-                        status=ServiceStatus.WORKING,
-                        viewed_executor_additional=False,
-                        updated_at=func.now()
-                    )
-                    .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
-                )
-                await execute(update_query)
+            company.executor_default_id = company_data.executor_default_id
 
-            if company_data.executor_additional_id is None:
-                update_query = (
-                    update(Service)
-                    .values(
-                        executor_additional_id=company_data.executor_additional_id,
-                        viewed_executor_additional=False,
-                        updated_at=func.now()
-                    )
-                    .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
+        if company_data.executor_additional_id != company.executor_additional_id:
+            update_query = (
+                update(Service)
+                .values(
+                    executor_additional_id=company_data.executor_additional_id,
+                    viewed_executor_additional=False,
+                    updated_at=func.now()
                 )
-                await execute(update_query)
+                .where(Service.company_id == company_id, Service.executor_additional_id == company.executor_additional_id,
+                       Service.status not in [ServiceStatus.CLOSED]) # TODO: добавить поддержку статуса 'Отказ')
+            )
+            await execute(update_query)
+            company.executor_additional_id = company_data.executor_additional_id
         if company_data.opening_time:
             company.opening_time = company_data.opening_time
         if company_data.closing_time:
