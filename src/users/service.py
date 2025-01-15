@@ -8,7 +8,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Company, CompanyContacts, User, Roles, RefreshTokens, ExecutorDefault
+from src.models import Company, CompanyContacts, User, Roles, RefreshTokens, ExecutorDefault, Service, ServiceStatus, execute
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
     EditCustomerCompany, EditCustomerContacts
 
@@ -358,10 +358,45 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
             company.name = company_data.name
         if company_data.address:
             company.address = company_data.address
-        if company_data.executor_default_id not in [False, None]:
+        if company_data.executor_default_id not in [False, None, company.executor_default_id]:
             company.executor_default_id = company_data.executor_default_id
-        if company_data.executor_additional_id is not False:
+            update_query = (
+                update(Service)
+                .values(
+                    executor_default_id=company_data.executor_default_id,
+                    status=ServiceStatus.WORKING,
+                    viewed_executor_default=False,
+                    updated_at=func.now()
+                )
+                .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
+            )
+            await execute(update_query)
+        if company_data.executor_additional_id  not in [False, company.executor_additional_id]:
             company.executor_additional_id = company_data.executor_additional_id
+            if company_data.executor_additional_id is not None:
+                update_query = (
+                    update(Service)
+                    .values(
+                        executor_additional_id=company_data.executor_additional_id,
+                        status=ServiceStatus.WORKING,
+                        viewed_executor_additional=False,
+                        updated_at=func.now()
+                    )
+                    .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
+                )
+                await execute(update_query)
+
+            if company_data.executor_additional_id is None:
+                update_query = (
+                    update(Service)
+                    .values(
+                        executor_additional_id=company_data.executor_additional_id,
+                        viewed_executor_additional=False,
+                        updated_at=func.now()
+                    )
+                    .where(Service.company_id == company_id, Service.status != ServiceStatus.CLOSED)
+                )
+                await execute(update_query)
         if company_data.opening_time:
             company.opening_time = company_data.opening_time
         if company_data.closing_time:

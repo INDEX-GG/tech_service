@@ -189,7 +189,7 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
             service.viewed_admin = True
         service.viewed_customer = False
         service.viewed_executor_default = False
-        service.viewed_executor_additional= False
+        service.viewed_executor_additional = False
 
         service.deadline_at = assign_data.deadline_at.replace(tzinfo=None) if assign_data.deadline_at else None
         service.comment = assign_data.comment if assign_data.comment else None
@@ -296,11 +296,11 @@ async def get_service_card_by_id(service_id: UUID, role: Roles, user_id: int, se
             await session.commit()
             await session.refresh(service)
     elif role == Roles.EXECUTOR:
-        if not service.viewed_executor_default and service.executor_default.id == user_id:
+        if not service.viewed_executor_default and service.executor_default_id == user_id:
             service.viewed_executor_default = True
             await session.commit()
             await session.refresh(service)
-        if not service.viewed_executor_additional and service.executor_additional.id == user_id:
+        if not service.viewed_executor_additional and service.executor_additional_id == user_id:
             service.viewed_executor_additional = True
             await session.commit()
             await session.refresh(service)
@@ -516,7 +516,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
 async def get_services_by_status(service_status: ServiceStatus, company_id: UUID, sort: str, page: int, limit: int,
                                  emergency: bool, custom_position: bool, session: AsyncSession,
-                                 executor_id: int = None, user_id: int = None):
+                                 executor_id: int | None):
     offset = (page - 1) * limit
 
     if executor_id:
@@ -700,12 +700,11 @@ async def get_services_by_status(service_status: ServiceStatus, company_id: UUID
 
     # Получаем все объекты Company из результата
     services = result.scalars().all()
-
     for service in services:
-        service.viewed_executor = None
-        if service.executor_default_id == user_id:
+        service.viewed_executor = False
+        if service.executor_default_id == executor_id:
             service.viewed_executor = service.viewed_executor_default
-        if service.executor_additional_id == user_id:
+        if service.executor_additional_id == executor_id:
             service.viewed_executor = service.viewed_executor_additional
 
     return services, total, total_unviewed
