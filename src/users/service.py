@@ -364,7 +364,7 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
                     viewed_executor_default=False,
                 )
                 .where(Service.company_id == company_id, Service.executor_default_id == company.executor_default_id,
-                       Service.status not in [ServiceStatus.CLOSED])  # TODO: добавить поддержку статуса 'Отказ'
+                       Service.status != ServiceStatus.CLOSED)  # TODO: добавить поддержку статуса 'Отказ'
             )
             await execute(update_query)
             company.executor_default_id = company_data.executor_default_id
@@ -377,7 +377,7 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
                     viewed_executor_additional=False,
                 )
                 .where(Service.company_id == company_id, Service.executor_additional_id == company.executor_additional_id,
-                       Service.status not in [ServiceStatus.CLOSED]) # TODO: добавить поддержку статуса 'Отказ')
+                       Service.status != ServiceStatus.CLOSED) # TODO: добавить поддержку статуса 'Отказ')
             )
             await execute(update_query)
             company.executor_additional_id = company_data.executor_additional_id
