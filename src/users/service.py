@@ -285,7 +285,7 @@ async def block_user(user_id: int, session: AsyncSession) -> [bool | JSONRespons
         executor_default = model_executor_default.scalar_one_or_none()
 
         if executor_default:
-            return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
+            return JSONResponse(content={"message": "Дежурный исполнитель не может быть удален"}, status_code=400)
 
         if user.is_active:
             user.is_active = False
