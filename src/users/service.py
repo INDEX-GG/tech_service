@@ -272,12 +272,10 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
         await session.close()
 
 
-async def block_user(user_id: int, session: AsyncSession) -> [bool | JSONResponse]:
+async def block_user(user_id: int, session: AsyncSession) -> str:
     select_query = select(User).where(User.id == user_id)
     model_user = await session.execute(select_query)
     user = model_user.scalar_one_or_none()
-
-
 
     if user:
         select_executor_default = select(ExecutorDefault).where(ExecutorDefault.executor_id == user_id)
@@ -285,7 +283,7 @@ async def block_user(user_id: int, session: AsyncSession) -> [bool | JSONRespons
         executor_default = model_executor_default.scalar_one_or_none()
 
         if executor_default:
-            return JSONResponse(content={"message": "Дежурный исполнитель не может быть удален"}, status_code=400)
+            return "executor_default"
 
         if user.is_active:
             user.is_active = False
@@ -296,9 +294,9 @@ async def block_user(user_id: int, session: AsyncSession) -> [bool | JSONRespons
             )
             await session.execute(update_query)
             await session.commit()
-            return True
+            return "success"
 
-    return False
+    return "not_found"
 
 
 async def edit_credentials(user_id: int, user_data: EditUserCredentials, session: AsyncSession) -> dict[str, Any] | None:

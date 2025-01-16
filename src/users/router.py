@@ -172,10 +172,13 @@ async def block_user_account(
         session: AsyncSession = Depends(get_async_session)
 ) -> JSONResponse:
     result = await users_service.block_user(user_id, session)
-    if result:
-        return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
-    else:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    match result:
+        case "success":
+            return JSONResponse(status_code=200, content={"message": "Пользователь успешно удален(заблокирован)"})
+        case "executor_default":
+            return JSONResponse(status_code=400, content={"message": "Дежурный исполнитель не может быть удален"})
+        case "not_found":
+            return JSONResponse(status_code=404, content={"message": "Пользователь не найден"})
 
 
 @router.patch("/credentials/{user_id}", response_model=UserResponse, dependencies=[Depends(validate_admin_access)])
@@ -341,15 +344,15 @@ async def edit_company_contacts(
     return response
 
 
-@router.delete("/me/block", status_code=status.HTTP_204_NO_CONTENT)
-async def block_authorized_user_account(
-        current_user: JWTData = Depends(parse_jwt_user_data),
-        session: AsyncSession = Depends(get_async_session)
-) -> JSONResponse:
-    user_id = current_user.user_id
-    result = await users_service.block_user(user_id, session)
-    if result:
-        return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
-    else:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
+# @router.delete("/me/block", status_code=status.HTTP_204_NO_CONTENT)
+# async def block_authorized_user_account(
+#         current_user: JWTData = Depends(parse_jwt_user_data),
+#         session: AsyncSession = Depends(get_async_session)
+# ) -> JSONResponse:
+#     user_id = current_user.user_id
+#     result = await users_service.block_user(user_id, session)
+#     if result:
+#         return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
+#     else:
+#         raise HTTPException(status_code=404, detail="Пользователь не найден")
 
