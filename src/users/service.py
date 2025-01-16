@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, or_, select, delete, desc, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.responses import JSONResponse
 
 from src.models import Company, CompanyContacts, User, Roles, RefreshTokens, ExecutorDefault, Service, ServiceStatus, execute
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
@@ -234,14 +235,12 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
         await session.commit()
         await session.refresh(customer)
 
-        executor_default = await get_user_executor_default(session)
-        executor_default_id = executor_default.id if customer_data.executor_default_id is None else customer_data.executor_default_id
 
         customer_company = Company(
             user_id=customer.id,
             name=customer_data.name,
             address=customer_data.address,
-            executor_default_id=executor_default_id,
+            executor_default_id=customer_data.executor_default_id,
             executor_additional_id=customer_data.executor_additional_id,
             opening_time=customer_data.opening_time,
             closing_time=customer_data.closing_time,
@@ -273,7 +272,7 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
         await session.close()
 
 
-async def block_user(user_id: int, session: AsyncSession) -> bool:
+async def block_user(user_id: int, session: AsyncSession) -> [bool | JSONResponse]:
     select_query = select(User).where(User.id == user_id)
     model_user = await session.execute(select_query)
     user = model_user.scalar_one_or_none()
@@ -286,7 +285,7 @@ async def block_user(user_id: int, session: AsyncSession) -> bool:
         executor_default = model_executor_default.scalar_one_or_none()
 
         if executor_default:
-            raise HTTPException(status_code=400, detail='Дежурный исполнитель не может быть удален')
+            return JSONResponse(content={"message": "Пользователь успешно удален(заблокирован)"})
 
         if user.is_active:
             user.is_active = False
@@ -358,33 +357,33 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
             company.name = company_data.name
         if company_data.address:
             company.address = company_data.address
-        if company_data.executor_default_id != company.executor_default_id:
+
+        if company_data.executor_default_id and company_data.executor_default_id != company.executor_default_id:
             update_query = (
                 update(Service)
                 .values(
                     executor_default_id=company_data.executor_default_id,
                     viewed_executor_default=False,
-                    updated_at=func.now()
                 )
                 .where(Service.company_id == company_id, Service.executor_default_id == company.executor_default_id,
-                       Service.status not in [ServiceStatus.CLOSED]) # TODO: добавить поддержку статуса 'Отказ'
+                       Service.status not in [ServiceStatus.CLOSED])  # TODO: добавить поддержку статуса 'Отказ'
             )
             await execute(update_query)
             company.executor_default_id = company_data.executor_default_id
 
-        if company_data.executor_additional_id != company.executor_additional_id:
+        if company_data.executor_additional_id is not False and company_data.executor_additional_id != company.executor_additional_id:
             update_query = (
                 update(Service)
                 .values(
                     executor_additional_id=company_data.executor_additional_id,
                     viewed_executor_additional=False,
-                    updated_at=func.now()
                 )
                 .where(Service.company_id == company_id, Service.executor_additional_id == company.executor_additional_id,
                        Service.status not in [ServiceStatus.CLOSED]) # TODO: добавить поддержку статуса 'Отказ')
             )
             await execute(update_query)
             company.executor_additional_id = company_data.executor_additional_id
+
         if company_data.opening_time:
             company.opening_time = company_data.opening_time
         if company_data.closing_time:
