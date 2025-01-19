@@ -164,11 +164,8 @@ async def mark_service_verifying_by_executor(
 
     service_default_executor_id, service_additional_executor_id, service_status = await services.get_service_executor_id(service_id, session)
 
-    if not service_default_executor_id or not service_additional_executor_id:
-        raise HTTPException(status_code=400, detail="У заявки должен быть назначен исполнитель")
-
     if not current_user.is_admin:
-        if int(current_user.user_id) not in [int(service_default_executor_id), int(service_additional_executor_id)]:
+        if current_user.user_id not in [service_default_executor_id, service_additional_executor_id]:
             raise AuthorizationFailed()
 
     if service_status != ServiceStatus.WORKING:
@@ -387,6 +384,10 @@ async def edit_service_by_customer(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
+    service = await services.get_service_card_by_id(service_id, current_user.role, current_user.user_id, session)
+    if service.status != ServiceStatus.WORKING:
+        raise HTTPException(status_code=400, detail="Заказчик имеет возможность вносить изменения в заявки, находящиеся в работе.")
+
     old_files = []
 
     if current_files:
