@@ -16,7 +16,6 @@ app = FastAPI(**app_configs)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 app.include_router(api_router)
 
 app.add_middleware(
@@ -47,7 +46,7 @@ async def policy() -> FileResponse:
     return FileResponse("templates/policy.html", media_type="text/html")
 
 
-@app.get("/user-accept", include_in_schema=False)
+@app.get("/user_accept", include_in_schema=False)
 async def user_accept() -> FileResponse:
     return FileResponse("templates/user_accept.html", media_type="text/html")
 
