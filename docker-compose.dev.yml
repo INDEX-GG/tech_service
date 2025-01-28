@@ -1,0 +1,33 @@
+services:
+  dev_tech_service_db_host:
+    container_name: dev_tech_service_db
+    hostname: dev_tech_service_db_host
+    image: postgres:15
+    env_file:
+      - .env
+    volumes:
+      - dev_app_pg_data:/var/lib/postgresql/data
+      - dev_app_pg_data_backups:/backups
+      - ./scripts/postgres:/scripts
+    command: -p 5434
+    ports:
+      - "5434:5434"
+
+  dev_tech_service_app:
+    container_name: dev_tech_service
+    image: dev_tech_service_image
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/src
+    ports:
+      - "5953:8000"
+    depends_on:
+      - dev_tech_service_db_host
+
+volumes:
+  dev_app_pg_data:
+  dev_app_pg_data_backups:
