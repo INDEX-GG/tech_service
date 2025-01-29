@@ -127,17 +127,29 @@ class Company(Base):
     executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="company_executor_additional", single_parent=True, uselist=False)
     services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
 
-    @hybrid_property
-    def new_services_count(self):
-        return sum(
-            1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
+    def new_services_count(self, executor_id):
+        if executor_id:
+            executor_working = sum(1 for service in self.services if
+                                   service.status == ServiceStatus.WORKING and
+                                   (service.executor_default_id == executor_id or service.executor_additional_id == executor_id))
 
-    def new_services_count_executor(self, executor_id):
-        return sum(1 for service in self.services if
-                   (service.status == ServiceStatus.WORKING and service.viewed_executor_default == False and service.executor_default_id == executor_id)
-                   or
-                   (service.status == ServiceStatus.WORKING and service.viewed_executor_additional == False and service.executor_additional_id == executor_id))
+            executor_verifying = sum(1 for service in self.services if
+                                   service.status == ServiceStatus.VERIFYING and
+                                   (service.executor_default_id == executor_id or service.executor_additional_id == executor_id))
 
+            return {
+                "working": executor_working if executor_working else 0,
+                "verifying": executor_verifying if executor_verifying else 0
+            }
+
+        else:
+            admin_working = sum(1 for service in self.services if (service.status == ServiceStatus.WORKING))
+            admin_verifying = sum(1 for service in self.services if (service.status == ServiceStatus.VERIFYING))
+
+            return {
+                "working": admin_working if admin_working else 0,
+                "verifying": admin_verifying if admin_verifying else 0
+            }
 
 
 class User(Base):

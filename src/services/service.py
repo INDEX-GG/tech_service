@@ -328,10 +328,13 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
         service = model.scalar_one_or_none()
 
         service.status = ServiceStatus.CLOSED
-        if not service.viewed_admin:
-            service.viewed_admin = True
+
+        service.viewed_admin = True
         service.viewed_customer = False
-        service.viewed_executor = False
+        service.viewed_executor_default = False
+        service.viewed_executor_additional = False
+
+
 
         await session.commit()
         await session.refresh(service)
@@ -494,18 +497,15 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
     for company_with_tabs in companies_with_tabs:
         company = company_with_tabs[0]
-        # TODO: update
-        counter = company.new_services_count_executor(
-                    executor_id) if executor_id else company.new_services_count
+        counter = company.new_services_count(executor_id)
 
         company_object = {
             "id": company.id,
             "name": company.name,
             "address": company.address,
             "badge": {
-                # TODO: update
-                "mark": counter > 0,
-                "counter": counter
+                "counter_working": counter['working'],
+                "counter_verifying": counter['verifying']
             },
             "tabs": {
                 "working": company_with_tabs.working,

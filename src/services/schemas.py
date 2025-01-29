@@ -76,15 +76,16 @@ class VideoAndImageInput(BaseModel):
 
 
 class BadgeServicesResponse(CustomModel):
-    mark: bool
-    counter: int
+    counter_working: int
+    counter_verifying: int
 
 
 class TabsServicesResponse(CustomModel):
-    new: int
     working: int
     verifying: int
     closed: int
+    # TODO: задача 6
+    # refused: int
 
 
 class CompaniesListedResponse(CustomModel):
