@@ -334,7 +334,46 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
         service.viewed_executor_default = False
         service.viewed_executor_additional = False
 
+        await session.commit()
+        await session.refresh(service)
 
+        return service
+
+    except Exception as e:
+        # Обработка ошибок
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка закрытия заявки")
+    finally:
+        # закрыть сессию после выполнения операций
+        await session.close()
+
+
+async def make_service_refused(service_id: UUID, session: AsyncSession):
+    try:
+        select_query = (select(Service)
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(
+            Company.executor_additional))
+                        .options(selectinload(Service.executor_additional))
+                        .options(selectinload(Service.executor_default))
+                        .options(selectinload(Service.media_files))
+                        .where(Service.id == service_id)
+                        )
+        model = await session.execute(select_query)
+        service = model.scalar_one_or_none()
+
+        if service.status not in [ServiceStatus.WORKING]:
+            raise HTTPException(status_code=400, detail="Возможность отклонения заявки доступна "
+                                                        "только для заявок, находящихся в работе")
+        service.status = ServiceStatus.REFUSED
+
+        service.viewed_admin = True
+        service.viewed_customer = False
+        service.viewed_executor_default = False
+        service.viewed_executor_additional = False
 
         await session.commit()
         await session.refresh(service)
@@ -343,9 +382,8 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
 
     except Exception as e:
         # Обработка ошибок
-        print(f"Error assigning service to executor: {e}")
         await session.rollback()
-        raise HTTPException(status_code=400, detail=f"Ошибка закрытия заявки")
+        raise HTTPException(status_code=400, detail="Ошибка отклонения заявки")
     finally:
         # закрыть сессию после выполнения операций
         await session.close()
@@ -421,20 +459,19 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     )
                 ), 1), else_=0)).label("closed"),
 
-                # TODO: задача 6
-                # func.sum(case((and_(
-                #     Service.status == ServiceStatus.REFUSED,
-                #     or_(
-                #         and_(
-                #             Service.executor_default_id == executor_id,
-                #             Service.viewed_executor_default == False
-                #         ),
-                #         and_(
-                #             Service.executor_additional_id == executor_id,
-                #             Service.viewed_executor_additional == False,
-                #         )
-                #     )
-                # ), 1), else_=0)).label("refused"),
+                func.sum(case((and_(
+                    Service.status == ServiceStatus.REFUSED,
+                    or_(
+                        and_(
+                            Service.executor_default_id == executor_id,
+                            Service.viewed_executor_default == False
+                        ),
+                        and_(
+                            Service.executor_additional_id == executor_id,
+                            Service.viewed_executor_additional == False,
+                        )
+                    )
+                ), 1), else_=0)).label("refused"),
 
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
@@ -470,9 +507,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                               else_=0)).label("verifying"),
                 func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.viewed_admin == False), 1),
                               else_=0)).label("closed"),
-                # TODO: задача 6
-                # func.sum(case((and_(Service.status == ServiceStatus.REFUSED, Service.viewed_admin == False), 1),
-                #               else_=0)).label("refused")
+                func.sum(case((and_(Service.status == ServiceStatus.REFUSED, Service.viewed_admin == False), 1),
+                              else_=0)).label("refused")
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
@@ -511,8 +547,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                 "working": company_with_tabs.working,
                 "verifying": company_with_tabs.verifying,
                 "closed": company_with_tabs.closed,
-                # TODO: задача 6
-                # "refused": company_with_tabs.closed,
+                "refused": company_with_tabs.refused,
             }
         }
         response.append(company_object)

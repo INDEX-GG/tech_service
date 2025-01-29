@@ -49,6 +49,7 @@ class ServiceStatus(Enum):
     VERIFYING = "Контроль качества"
     CLOSED = "Закрыта"
     CUSTOM = "Заказная позиция"
+    REFUSED = "Отказ"
 
 
 class FileTypes(Enum):

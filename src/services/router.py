@@ -223,6 +223,20 @@ async def close_service(
     return closed_service
 
 
+@router.post("/refuse/{service_id}", status_code=status.HTTP_200_OK, response_model=ServiceResponse,
+             dependencies=[Depends(validate_admin_access)])
+async def refuse_service(
+        service_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session)
+) -> dict[str, Any]:
+    refused_service = await services.make_service_refused(service_id, session)
+
+    if not refused_service:
+        raise HTTPException(status_code=400, detail="Ошибка отклонения заявки")
+
+    return refused_service
+
+
 @router.get("/companies/all", status_code=status.HTTP_200_OK, response_model=CompaniesListPaginated)
 async def get_all_companies(
         page: int = 1,
@@ -248,7 +262,7 @@ async def get_all_companies(
 @router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginatedSpecial)
 async def get_all_company_services_by_status(
         company_id: uuid.UUID,
-        value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
+        value: str = Path(..., title="Status", description="Статус заявки", regex="^(working|verifying|closed|refused)$"),
         sort: str = "date_desc",
         emergency: bool = False,
         custom_position: bool = False,
@@ -261,7 +275,7 @@ async def get_all_company_services_by_status(
     Получение списка заявок по статусу с пагинацией для администратора и исполнителя
 
     Параметры:
-    - value: Статус заявки (working|verifying|closed).
+    - value: Статус заявки (working|verifying|closed|refused).
     - sort: Сортировка.
     - page: Страница.
     - limit: Кол-во заявок на одной странице.
@@ -280,6 +294,7 @@ async def get_all_company_services_by_status(
         'working': ServiceStatus.WORKING,
         'verifying': ServiceStatus.VERIFYING,
         'closed': ServiceStatus.CLOSED,
+        'refused': ServiceStatus.REFUSED,
     }
     service_status = status_mapping.get(value, None)
 

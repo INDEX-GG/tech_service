@@ -84,8 +84,7 @@ class TabsServicesResponse(CustomModel):
     working: int
     verifying: int
     closed: int
-    # TODO: задача 6
-    # refused: int
+    refused: int
 
 
 class CompaniesListedResponse(CustomModel):
