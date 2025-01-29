@@ -533,7 +533,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
     for company_with_tabs in companies_with_tabs:
         company = company_with_tabs[0]
-        counter = company.new_services_count(executor_id)
+        counter = company.services_count(executor_id)
 
         company_object = {
             "id": company.id,
@@ -928,7 +928,6 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
             raise HTTPException(status_code=400, detail="Заказчик может изменять только свои заявки")
         else:
             if service.status not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
-                # if service.status != ServiceStatus.NEW:
                 raise HTTPException(status_code=400,
                                     detail="Заказчик может изменять заявки только со статусом 'В работе и Контроль качества'")
         fields_to_update.remove('executor_default_id')  # Убираем возможность изменять исполнителя для Заказчика

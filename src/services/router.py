@@ -316,7 +316,7 @@ async def get_all_company_services_by_status(
 
 @router.get("/customer/status/{value}", status_code=status.HTTP_200_OK, response_model=CustomerServicesListPaginated)
 async def get_all_customer_services_by_status(
-        value: str = Path(..., title="Status", description="Статус заявки", regex="^(new|working|verifying|closed)$"),
+        value: str = Path(..., title="Status", description="Статус заявки", regex="^(working|verifying|closed|refused)$"),
         sort: str = "date_desc",
         emergency: bool = False,
         custom_position: bool = False,
@@ -329,7 +329,7 @@ async def get_all_customer_services_by_status(
     Получение списка заявок по статусу с пагинацией для администратора и заказчика
 
     Параметры:
-    - value: Статус заявки (new|working|verifying|closed).
+    - value: Статус заявки (working|verifying|closed|refused).
     - sort: Сортировка.
     - page: Страница.
     - limit: Кол-во заявок на одной странице.
@@ -345,7 +345,6 @@ async def get_all_customer_services_by_status(
     customer_id = int(current_user.user_id) if current_user.is_customer else None
 
     status_mapping = {
-        'new': ServiceStatus.NEW,
         'working': ServiceStatus.WORKING,
         'verifying': ServiceStatus.VERIFYING,
         'closed': ServiceStatus.CLOSED,
