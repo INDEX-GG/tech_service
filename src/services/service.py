@@ -165,8 +165,10 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         select_query = (select(Service)
                         .options(
             selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
-                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
-                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_additional))
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(
+            Company.executor_additional))
                         .options(selectinload(Service.executor_additional))
                         .options(selectinload(Service.executor_default))
                         .options(selectinload(Service.media_files))
@@ -192,7 +194,6 @@ async def assign_executor_to_service(assign_data, session: AsyncSession):
         service.viewed_executor_additional = False
 
         service.deadline_at = assign_data.deadline_at.replace(tzinfo=None) if assign_data.deadline_at else None
-        service.comment = assign_data.comment if assign_data.comment else None
 
         if assign_data.emergency is not None:
             service.emergency = assign_data.emergency
@@ -326,10 +327,11 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
         service = model.scalar_one_or_none()
 
         service.status = ServiceStatus.CLOSED
-        if not service.viewed_admin:
-            service.viewed_admin = True
+
+        service.viewed_admin = True
         service.viewed_customer = False
-        service.viewed_executor = False
+        service.viewed_executor_default = False
+        service.viewed_executor_additional = False
 
         await session.commit()
         await session.refresh(service)
@@ -338,9 +340,49 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
 
     except Exception as e:
         # Обработка ошибок
-        print(f"Error assigning service to executor: {e}")
         await session.rollback()
-        raise HTTPException(status_code=400, detail=f"Ошибка закрытия заявки")
+        raise HTTPException(status_code=400, detail="Ошибка закрытия заявки")
+    finally:
+        # закрыть сессию после выполнения операций
+        await session.close()
+
+
+async def make_service_refused(service_id: UUID, session: AsyncSession):
+    try:
+        select_query = (select(Service)
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.contacts))
+                        .options(
+            selectinload(Service.customer).selectinload(User.customer_company).selectinload(Company.executor_default))
+                        .options(selectinload(Service.customer).selectinload(User.customer_company).selectinload(
+            Company.executor_additional))
+                        .options(selectinload(Service.executor_additional))
+                        .options(selectinload(Service.executor_default))
+                        .options(selectinload(Service.media_files))
+                        .where(Service.id == service_id)
+                        )
+        model = await session.execute(select_query)
+        service = model.scalar_one_or_none()
+
+        if service.status not in [ServiceStatus.WORKING]:
+            raise HTTPException(status_code=400, detail="Возможность отклонения заявки доступна "
+                                                        "только для заявок, находящихся в работе")
+        service.status = ServiceStatus.REFUSED
+
+        service.viewed_admin = True
+        service.viewed_customer = False
+        service.viewed_executor_default = False
+        service.viewed_executor_additional = False
+
+        await session.commit()
+        await session.refresh(service)
+
+        return service
+
+    except Exception as e:
+        # Обработка ошибок
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Ошибка отклонения заявки")
     finally:
         # закрыть сессию после выполнения операций
         await session.close()
@@ -349,14 +391,15 @@ async def make_service_closed(service_id: UUID, session: AsyncSession):
 async def get_all_companies_with_services_info(page: int, limit: int, session: AsyncSession, executor_id: int = None):
     offset = (page - 1) * limit
 
+    # получаем id компании у активных организаций
     active_customer_subquery = (
         select(Company.id)
-        .join(Company.customer)  # Присоединяем customer
+        .join(Company.customer)
         .where(Company.customer.has(is_active=True))
         .distinct()
     )
 
-    #######################################################################
+    # Получаем количество заявок
     if executor_id:
         count_query = (
             select(func.count())
@@ -365,8 +408,7 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                 and_(
                     Service.company_id == Company.id,
                     or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
-                    Company.id.in_(active_customer_subquery),
-                    executor_id is not None
+                    Company.id.in_(active_customer_subquery)
                 )
             ))
         )
@@ -374,20 +416,16 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
         query = (
             select(
                 Company,
-                func.bool_or(or_(Service.viewed_executor_default == False, Service.viewed_executor_additional == False)).label("marked"),
-
                 func.sum(case((and_(
                     Service.status == ServiceStatus.WORKING,
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False,
-                            executor_id is not None
-                ),
+                            Service.viewed_executor_default == False
+                        ),
                         and_(
                             Service.executor_additional_id == executor_id,
-                            Service.viewed_executor_additional == False,
-                            executor_id is not None
+                            Service.viewed_executor_additional == False
                         ),
                     )
                 ), 1), else_=0)).label("working"),
@@ -397,16 +435,13 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False,
-                            executor_id is not None
+                            Service.viewed_executor_default == False
                         ),
                         and_(
                             Service.executor_additional_id == executor_id,
-                            Service.viewed_executor_additional == False,
-                            executor_id is not None
+                            Service.viewed_executor_additional == False
                         )
                     )
-
                 ), 1), else_=0)).label("verifying"),
 
                 func.sum(case((and_(
@@ -414,24 +449,34 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
                     or_(
                         and_(
                             Service.executor_default_id == executor_id,
-                            Service.viewed_executor_default == False,
-                            executor_id is not None
+                            Service.viewed_executor_default == False
                         ),
                         and_(
                             Service.executor_additional_id == executor_id,
                             Service.viewed_executor_additional == False,
-                            executor_id is not None
                         )
                     )
-
                 ), 1), else_=0)).label("closed"),
+
+                func.sum(case((and_(
+                    Service.status == ServiceStatus.REFUSED,
+                    or_(
+                        and_(
+                            Service.executor_default_id == executor_id,
+                            Service.viewed_executor_default == False
+                        ),
+                        and_(
+                            Service.executor_additional_id == executor_id,
+                            Service.viewed_executor_additional == False,
+                        )
+                    )
+                ), 1), else_=0)).label("refused"),
 
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
                 or_(Service.executor_default_id == executor_id, Service.executor_additional_id == executor_id),
-                Company.id.in_(active_customer_subquery),
-                executor_id is not None
+                Company.id.in_(active_customer_subquery)
             ))
             .options(selectinload(Company.services))
             .group_by(Company.id)  # Группируем по компании
@@ -455,16 +500,14 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
         query = (
             select(
                 Company,
-                func.bool_or(Service.viewed_admin == False).label("marked"),
-                func.sum(
-                    case((and_(Service.status == ServiceStatus.NEW, Service.viewed_admin == False), 1), else_=0)).label(
-                    "new"),
                 func.sum(case((and_(Service.status == ServiceStatus.WORKING, Service.viewed_admin == False), 1),
                               else_=0)).label("working"),
                 func.sum(case((and_(Service.status == ServiceStatus.VERIFYING, Service.viewed_admin == False), 1),
                               else_=0)).label("verifying"),
                 func.sum(case((and_(Service.status == ServiceStatus.CLOSED, Service.viewed_admin == False), 1),
                               else_=0)).label("closed"),
+                func.sum(case((and_(Service.status == ServiceStatus.REFUSED, Service.viewed_admin == False), 1),
+                              else_=0)).label("refused")
             )
             .join(Service)  # Внутреннее соединение, чтобы выбрать только компании с сервисами
             .where(and_(
@@ -483,28 +526,27 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
 
     # Выполняем запрос и Получаем все объекты Company из результата
     result = await session.execute(query)
-    companies = result.all()
+    companies_with_tabs = result.all()
 
     response = []
 
-    for company_with_mark in companies:
-        company = company_with_mark[0]
-        marked = company_with_mark.marked
+    for company_with_tabs in companies_with_tabs:
+        company = company_with_tabs[0]
+        counter = company.services_count(executor_id)
 
         company_object = {
             "id": company.id,
             "name": company.name,
             "address": company.address,
             "badge": {
-                "mark": marked,
-                "counter": company.new_services_count_executor(
-                    executor_id) if executor_id else company.new_services_count
+                "counter_working": counter['working'],
+                "counter_verifying": counter['verifying']
             },
             "tabs": {
-                "new": 0 if executor_id else company_with_mark.new,
-                "working": company_with_mark.working,
-                "verifying": company_with_mark.verifying,
-                "closed": company_with_mark.closed,
+                "working": company_with_tabs.working,
+                "verifying": company_with_tabs.verifying,
+                "closed": company_with_tabs.closed,
+                "refused": company_with_tabs.refused,
             }
         }
         response.append(company_object)
@@ -876,7 +918,8 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
     result = await session.execute(select_query)
     service = result.scalar_one_or_none()
 
-    fields_to_update = ['executor_default_id', 'executor_additional_id', 'title', 'description', 'deadline_at', 'material_availability', 'emergency',
+    fields_to_update = ['executor_default_id', 'executor_additional_id', 'title', 'description', 'deadline_at',
+                        'material_availability', 'emergency',
                         'custom_position', 'comment']
 
     if customer_id:
@@ -884,8 +927,8 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
             raise HTTPException(status_code=400, detail="Заказчик может изменять только свои заявки")
         else:
             if service.status not in [ServiceStatus.WORKING, ServiceStatus.VERIFYING]:
-            # if service.status != ServiceStatus.NEW:
-                raise HTTPException(status_code=400, detail="Заказчик может изменять заявки только со статусом 'В работе и Контроль качества'")
+                raise HTTPException(status_code=400,
+                                    detail="Заказчик может изменять заявки только со статусом 'В работе и Контроль качества'")
         fields_to_update.remove('executor_default_id')  # Убираем возможность изменять исполнителя для Заказчика
         fields_to_update.remove('executor_additional_id')
         service.viewed_admin = False  # Непросмотрено админом

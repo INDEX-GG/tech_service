@@ -37,6 +37,14 @@ class MediaFilesResponse(BaseModel):
     owner_type: OwnerTypes
 
 
+class CommentResponse(BaseModel):
+    id: int
+    service_id: UUID
+    user_id: int
+    comments: str
+    created_at: datetime
+
+
 class ServiceResponse(CustomModel):
     id: UUID
     customer_id: int
@@ -50,7 +58,6 @@ class ServiceResponse(CustomModel):
     created_at: datetime
     deadline_at: datetime | None
     status: ServiceStatus
-    comment: str | None
     customer: CustomerUserResponse
     executor_default: ExecutorUserResponse
     executor_additional: ExecutorUserResponse | None = None
@@ -66,6 +73,7 @@ class ServiceAssignInput(CustomModel):
     emergency: bool | None = None
     custom_position: bool | None = None
 
+
 class ServiceAssignInputRequest(ServiceAssignInput):
     is_edit: bool = False
 
@@ -76,15 +84,15 @@ class VideoAndImageInput(BaseModel):
 
 
 class BadgeServicesResponse(CustomModel):
-    mark: bool
-    counter: int
+    counter_working: int
+    counter_verifying: int
 
 
 class TabsServicesResponse(CustomModel):
-    new: int
     working: int
     verifying: int
     closed: int
+    refused: int
 
 
 class CompaniesListedResponse(CustomModel):
@@ -148,7 +156,6 @@ class ServicesListPaginatedSpecial(CustomModel):
     items: List[ServiceListedResponseSpecial]
 
 
-
 class CustomerServicesListPaginated(CustomModel):
     total: int
     counter: int
@@ -166,3 +173,12 @@ class ServiceUpdateInput(CustomModel):
     deadline_at: datetime | None
     custom_position: bool | None
     comment: str | None
+
+
+class CommentSchema(CustomModel):
+    comment: str
+
+
+
+
+

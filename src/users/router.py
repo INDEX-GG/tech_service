@@ -176,9 +176,9 @@ async def block_user_account(
         case "success":
             return JSONResponse(status_code=200, content={"message": "Пользователь успешно удален(заблокирован)"})
         case "executor_default":
-            return JSONResponse(status_code=400, content={"message": "Дежурный исполнитель не может быть удален"})
+            raise HTTPException(status_code=400, detail="Дежурный исполнитель не может быть удален")
         case "not_found":
-            return JSONResponse(status_code=404, content={"message": "Пользователь не найден"})
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
 
 
 @router.patch("/credentials/{user_id}", response_model=UserResponse, dependencies=[Depends(validate_admin_access)])

@@ -44,11 +44,11 @@ class CustomModel(BaseModel):
 
 
 class ServiceStatus(Enum):
-    NEW = "Новая" # @deprecated
     WORKING = "В работе"
     VERIFYING = "Контроль качества"
     CLOSED = "Закрыта"
     CUSTOM = "Заказная позиция"
+    REFUSED = "Отказ"
 
 
 class FileTypes(Enum):
@@ -88,20 +88,21 @@ class Service(Base):
     viewed_executor_default = Column("viewed_executor_default", Boolean, server_default="false", nullable=False)
     viewed_executor_additional = Column("viewed_executor_additional", Boolean, server_default="false", nullable=False)
 
-
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
     deadline_at = Column("deadline_at", DateTime, server_default=None, nullable=True)
-    comment = Column("comment", String)
-    status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.NEW)
+    comments = relationship("Comments", back_populates="service", cascade="all, delete-orphan")
+    status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.WORKING)
     media_files = relationship("MediaFiles", back_populates="service", cascade="all, delete-orphan")
 
     customer = relationship("User", foreign_keys=[customer_id], back_populates="customer_services", single_parent=True,
                             uselist=False)
-    executor_default = relationship("User", foreign_keys=[executor_default_id], back_populates="executor_default_services", single_parent=True,
-                            uselist=False)
-    executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="executor_additional_services", single_parent=True,
-                            uselist=False)
+    executor_default = relationship("User", foreign_keys=[executor_default_id],
+                                    back_populates="executor_default_services", single_parent=True,
+                                    uselist=False)
+    executor_additional = relationship("User", foreign_keys=[executor_additional_id],
+                                       back_populates="executor_additional_services", single_parent=True,
+                                       uselist=False)
 
     company = relationship("Company", back_populates="services", single_parent=True, uselist=False)
 
@@ -123,21 +124,37 @@ class Company(Base):
 
     contacts = relationship("CompanyContacts", back_populates="company")
     customer = relationship("User", foreign_keys=[user_id], back_populates="customer_company", single_parent=True)
-    executor_default = relationship("User", foreign_keys=[executor_default_id], back_populates="company_executor_default", single_parent=True, uselist=False)
-    executor_additional = relationship("User", foreign_keys=[executor_additional_id], back_populates="company_executor_additional", single_parent=True, uselist=False)
+    executor_default = relationship("User", foreign_keys=[executor_default_id],
+                                    back_populates="company_executor_default", single_parent=True, uselist=False)
+    executor_additional = relationship("User", foreign_keys=[executor_additional_id],
+                                       back_populates="company_executor_additional", single_parent=True, uselist=False)
     services = relationship("Service", back_populates="company", order_by=Service.updated_at.desc())
 
-    @hybrid_property
-    def new_services_count(self):
-        return sum(
-            1 for service in self.services if (service.status == ServiceStatus.NEW and service.viewed_admin == False))
+    def services_count(self, executor_id):
+        if executor_id:
+            executor_working = sum(1 for service in self.services if
+                                   service.status == ServiceStatus.WORKING and
+                                   (
+                                               service.executor_default_id == executor_id or service.executor_additional_id == executor_id))
 
-    def new_services_count_executor(self, executor_id):
-        return sum(1 for service in self.services if
-                   (service.status == ServiceStatus.WORKING and service.viewed_executor_default == False and service.executor_default_id == executor_id)
-                   or
-                   (service.status == ServiceStatus.WORKING and service.viewed_executor_additional == False and service.executor_additional_id == executor_id))
+            executor_verifying = sum(1 for service in self.services if
+                                     service.status == ServiceStatus.VERIFYING and
+                                     (
+                                                 service.executor_default_id == executor_id or service.executor_additional_id == executor_id))
 
+            return {
+                "working": executor_working if executor_working else 0,
+                "verifying": executor_verifying if executor_verifying else 0
+            }
+
+        else:
+            admin_working = sum(1 for service in self.services if (service.status == ServiceStatus.WORKING))
+            admin_verifying = sum(1 for service in self.services if (service.status == ServiceStatus.VERIFYING))
+
+            return {
+                "working": admin_working if admin_working else 0,
+                "verifying": admin_verifying if admin_verifying else 0
+            }
 
 
 class User(Base):
@@ -159,18 +176,25 @@ class User(Base):
     executor_default_services = relationship("Service", foreign_keys=[Service.executor_default_id],
                                              back_populates="executor_default", cascade="all, delete-orphan")
     executor_additional_services = relationship("Service", foreign_keys=[Service.executor_additional_id],
-                                             back_populates="executor_additional", cascade="all, delete-orphan")
-    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer", cascade="all, delete-orphan")
-    customer_company = relationship("Company", foreign_keys=[Company.user_id], back_populates="customer", cascade="all, delete-orphan", uselist=False)
-    company_executor_default = relationship("Company", foreign_keys=[Company.executor_default_id], back_populates="executor_default", cascade="all, delete-orphan")
-    company_executor_additional = relationship("Company", foreign_keys=[Company.executor_additional_id], back_populates="executor_additional", cascade="all, delete-orphan")
+                                                back_populates="executor_additional", cascade="all, delete-orphan")
+    customer_services = relationship("Service", foreign_keys=[Service.customer_id], back_populates="customer",
+                                     cascade="all, delete-orphan")
+    customer_company = relationship("Company", foreign_keys=[Company.user_id], back_populates="customer",
+                                    cascade="all, delete-orphan", uselist=False)
+    company_executor_default = relationship("Company", foreign_keys=[Company.executor_default_id],
+                                            back_populates="executor_default", cascade="all, delete-orphan")
+    company_executor_additional = relationship("Company", foreign_keys=[Company.executor_additional_id],
+                                               back_populates="executor_additional", cascade="all, delete-orphan")
+
+    comments = relationship("Comments", back_populates="user", cascade="all, delete-orphan")
 
 
 class ExecutorDefault(Base):
     """Модель дежурного исполнителя"""
     __tablename__ = "executor_default"
     __table_args__ = {"schema": "public"}
-    executor_id = Column("customer_id", Integer, ForeignKey("public.users.id"), primary_key=True, unique=True, nullable=False, index=True)
+    executor_id = Column("customer_id", Integer, ForeignKey("public.users.id"), primary_key=True, unique=True,
+                         nullable=False, index=True)
 
 
 class RefreshTokens(Base):
@@ -185,6 +209,20 @@ class RefreshTokens(Base):
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
 
 
+class Comments(Base):
+    """Модель комментарий"""
+    __tablename__ = "comments"
+    id = Column(Integer, primary_key=True, index=True, unique=True, nullable=False)
+    service_id = Column(UUID(as_uuid=True), ForeignKey("public.services.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False, index=True)
+    comments = Column("comments", String, nullable=False)
+    created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="comments")
+    service = relationship("Service", back_populates="comments")
+
+
 class MediaFiles(Base):
     """Модель заявок"""
     __tablename__ = "media_files"
@@ -195,7 +233,6 @@ class MediaFiles(Base):
     owner_type = Column("owner_type", EnumSQL(OwnerTypes), nullable=False)
     url = Column("url", String, nullable=False)
     service = relationship("Service", back_populates="media_files")
-
 
 
 class CompanyContacts(Base):

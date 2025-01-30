@@ -41,6 +41,11 @@ app.servers = [
 #    return {"status": "ok"}
 
 
+@app.get("/versions", include_in_schema=False)
+async def versions() -> FileResponse:
+    return FileResponse("templates/versions.json", media_type="application/json")
+
+
 @app.get("/policy", include_in_schema=False)
 async def policy() -> FileResponse:
     return FileResponse("templates/policy.html", media_type="text/html")
