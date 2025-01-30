@@ -91,11 +91,7 @@ class Service(Base):
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
     deadline_at = Column("deadline_at", DateTime, server_default=None, nullable=True)
-    # Комментарий от администратора
-    comment = Column("comment", String)
-    # comment_customer = Column("comment_customer", String)
-    # comment_executor_default = Column("comment_executor_default", String)
-    # comment_executor_additional = Column("comment_executor_additional", String)
+    comments = relationship("Comments", back_populates="service", cascade="all, delete-orphan")
     status = Column("status", EnumSQL(ServiceStatus), nullable=False, default=ServiceStatus.WORKING)
     media_files = relationship("MediaFiles", back_populates="service", cascade="all, delete-orphan")
 
@@ -190,6 +186,8 @@ class User(Base):
     company_executor_additional = relationship("Company", foreign_keys=[Company.executor_additional_id],
                                                back_populates="executor_additional", cascade="all, delete-orphan")
 
+    comments = relationship("Comments", back_populates="user", cascade="all, delete-orphan")
+
 
 class ExecutorDefault(Base):
     """Модель дежурного исполнителя"""
@@ -209,6 +207,20 @@ class RefreshTokens(Base):
     expires_at = Column("expires_at", DateTime, nullable=False)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, onupdate=func.now())
+
+
+class Comments(Base):
+    """Модель комментарий"""
+    __tablename__ = "comments"
+    id = Column(Integer, primary_key=True, index=True, unique=True, nullable=False)
+    service_id = Column(UUID(as_uuid=True), ForeignKey("public.services.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False, index=True)
+    comments = Column("comments", String, nullable=False)
+    created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="comments")
+    service = relationship("Service", back_populates="comments")
 
 
 class MediaFiles(Base):

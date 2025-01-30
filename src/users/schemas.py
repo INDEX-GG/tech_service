@@ -131,7 +131,7 @@ class EditCustomerCompany(CustomModel):
     executor_additional_id: int | None = False
 
 
-
 class EditCustomerContacts(CustomModel):
     phone: str
     person: str
+

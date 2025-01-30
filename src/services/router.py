@@ -3,16 +3,17 @@ import uuid
 from datetime import datetime
 from typing import Any, List
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, Query, Path
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.exceptions import AuthorizationFailed
 from src.auth.jwt import validate_admin_access, validate_customer_access, parse_jwt_user_data, \
     validate_admin_and_customer_access
 from src.database import get_async_session
-from src.models import User, OwnerTypes, ServiceStatus
+from src.models import User, OwnerTypes, ServiceStatus, Comments, Service
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
     CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
-    ServicesListPaginatedSpecial, ServiceAssignInputRequest
+    ServicesListPaginatedSpecial, ServiceAssignInputRequest, CommentSchema, CommentResponse
 from src.services import service as services
 from src.media import service as media_service
 
@@ -25,7 +26,7 @@ async def get_service_card(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
-    service = await services.get_service_card_by_id(service_id, current_user.role,current_user.user_id, session)
+    service = await services.get_service_card_by_id(service_id, current_user.role, current_user.user_id, session)
     return service
 
 
@@ -33,7 +34,7 @@ async def get_service_card(
              dependencies=[Depends(validate_admin_access)])
 async def create_new_service_by_admin(
         customer_id: int = Form(...),
-        executor_default_id : int = Form(None),
+        executor_default_id: int = Form(None),
         executor_additional_id: int = Form(None),
         title: str = Form(...),
         description: str = Form(None),
@@ -162,7 +163,8 @@ async def mark_service_verifying_by_executor(
     if not any([current_user.is_admin, current_user.is_executor]):
         raise AuthorizationFailed()
 
-    service_default_executor_id, service_additional_executor_id, service_status = await services.get_service_executor_id(service_id, session)
+    service_default_executor_id, service_additional_executor_id, service_status = await services.get_service_executor_id(
+        service_id, session)
 
     if not current_user.is_admin:
         if current_user.user_id not in [service_default_executor_id, service_additional_executor_id]:
@@ -199,8 +201,9 @@ async def mark_service_verifying_by_executor(
     if image_files:
         await media_service.save_images(image_files=image_files, service_id=service_id, owner_type=owner_type)
 
-    marked_verifying = await services.mark_service_verifying(service_id,service_default_executor_id,
-                                                             service_additional_executor_id, current_user.user_id, session)
+    marked_verifying = await services.mark_service_verifying(service_id, service_default_executor_id,
+                                                             service_additional_executor_id, current_user.user_id,
+                                                             session)
     if not marked_verifying:
         raise HTTPException(status_code=400, detail="Ошибка отправления заявки на контроль качества")
 
@@ -262,7 +265,8 @@ async def get_all_companies(
 @router.get("/status/{value}/{company_id}", status_code=status.HTTP_200_OK, response_model=ServicesListPaginatedSpecial)
 async def get_all_company_services_by_status(
         company_id: uuid.UUID,
-        value: str = Path(..., title="Status", description="Статус заявки", regex="^(working|verifying|closed|refused)$"),
+        value: str = Path(..., title="Status", description="Статус заявки",
+                          regex="^(working|verifying|closed|refused)$"),
         sort: str = "date_desc",
         emergency: bool = False,
         custom_position: bool = False,
@@ -316,7 +320,8 @@ async def get_all_company_services_by_status(
 
 @router.get("/customer/status/{value}", status_code=status.HTTP_200_OK, response_model=CustomerServicesListPaginated)
 async def get_all_customer_services_by_status(
-        value: str = Path(..., title="Status", description="Статус заявки", regex="^(working|verifying|closed|refused)$"),
+        value: str = Path(..., title="Status", description="Статус заявки",
+                          regex="^(working|verifying|closed|refused)$"),
         sort: str = "date_desc",
         emergency: bool = False,
         custom_position: bool = False,
@@ -400,7 +405,8 @@ async def edit_service_by_customer(
 ):
     service = await services.get_service_card_by_id(service_id, current_user.role, current_user.user_id, session)
     if service.status != ServiceStatus.WORKING:
-        raise HTTPException(status_code=400, detail="Заказчик имеет возможность вносить изменения в заявки, находящиеся в работе.")
+        raise HTTPException(status_code=400,
+                            detail="Заказчик имеет возможность вносить изменения в заявки, находящиеся в работе.")
 
     old_files = []
 
@@ -460,7 +466,6 @@ async def edit_service_by_customer(
             raise ValueError("Ошибка загрузки фото")
 
     customer_id = int(current_user.user_id) if current_user.is_customer else None
-    # print('customer_id', customer_id)
 
     updated_service = await services.update_service_by_admin(customer_id, service_data, old_files, video_file,
                                                              image_files, session)
@@ -469,3 +474,52 @@ async def edit_service_by_customer(
         raise HTTPException(status_code=400, detail="Ошибка изменения заявки")
 
     return updated_service
+
+
+@router.post("/comments/{service_id}")
+async def add_executor_comments(
+        service_id: str,
+        comment_data: CommentSchema,
+        session: AsyncSession = Depends(get_async_session),
+        current_user: User = Depends(parse_jwt_user_data)
+):
+    service = await session.get(Service, service_id)
+    if not service:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+
+    if not current_user.is_admin and current_user.user_id not in [service.executor_default_id, service.executor_additional_id, service.customer_id]:
+        raise HTTPException(status_code=403, detail="Вы не можете оставлять комментарий")
+
+    new_comment = Comments(
+        service_id=service_id,
+        user_id=current_user.user_id,
+        comments=comment_data.comment,
+        created_at=datetime.utcnow()
+    )
+
+    session.add(new_comment)
+    await session.commit()
+
+    return new_comment
+
+
+@router.get("/comments/{service_id}", response_model=list[CommentResponse])
+async def get_service_comments(
+        service_id: str,
+        session: AsyncSession = Depends(get_async_session),
+        current_user: User = Depends(parse_jwt_user_data)
+):
+    service = await session.get(Service, service_id)
+    if not service:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+
+    if not current_user.is_admin and current_user.user_id not in [service.executor_default_id, service.executor_additional_id, service.customer_id]:
+        raise HTTPException(status_code=403, detail="Вы не можете смотреть комментарий к данной заявке")
+
+    result = await session.execute(
+        select(Comments).filter(Comments.service_id == service_id).order_by(
+            Comments.created_at))
+
+    comments = result.scalars().all()
+
+    return comments
