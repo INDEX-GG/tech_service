@@ -539,8 +539,8 @@ async def get_all_companies_with_services_info(page: int, limit: int, session: A
             "name": company.name,
             "address": company.address,
             "badge": {
-                "counter_working": counter['working'],
-                "counter_verifying": counter['verifying']
+                "working": counter['working'],
+                "verifying": counter['verifying']
             },
             "tabs": {
                 "working": company_with_tabs.working,
