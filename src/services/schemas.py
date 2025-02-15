@@ -84,8 +84,8 @@ class VideoAndImageInput(BaseModel):
 
 
 class BadgeServicesResponse(CustomModel):
-    counter_working: int
-    counter_verifying: int
+    working: int
+    verifying: int
 
 
 class TabsServicesResponse(CustomModel):
