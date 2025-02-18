@@ -353,6 +353,7 @@ async def get_all_customer_services_by_status(
         'working': ServiceStatus.WORKING,
         'verifying': ServiceStatus.VERIFYING,
         'closed': ServiceStatus.CLOSED,
+        'refused': ServiceStatus.REFUSED,
     }
     service_status = status_mapping.get(value, None)
 
