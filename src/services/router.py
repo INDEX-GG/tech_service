@@ -377,7 +377,7 @@ async def get_all_customer_services_by_status(
 
 
 @router.delete("/delete/{service_id}", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(validate_admin_access)])
+               dependencies=[Depends(validate_customer_access)])
 async def delete_service_by_id(
         service_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session)

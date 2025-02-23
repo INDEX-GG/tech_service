@@ -875,8 +875,17 @@ async def delete_service(service_id: UUID, session: AsyncSession):
         )
         service = service.scalar()
 
+        if service.status not in [ServiceStatus.WORKING]:
+            raise HTTPException(status_code=400)
+
         if service is None:
             raise NoResultFound()
+
+        # Now, delete the service
+        await session.delete(service)
+
+        # Commit the changes
+        await session.commit()
 
         # Удаляем связанные файлы из файловой системы
         media_images_folder = f"./static/images/{service_id}"
@@ -888,12 +897,6 @@ async def delete_service(service_id: UUID, session: AsyncSession):
         if os.path.exists(media_videos_folder):
             shutil.rmtree(media_videos_folder)
             print(f"Удалена папка с видео: {media_videos_folder}")
-
-        # Now, delete the service
-        await session.delete(service)
-
-        # Commit the changes
-        await session.commit()
 
         print('Service and associated media files deleted successfully')
 
