@@ -853,8 +853,7 @@ async def update_service_by_admin(customer_id: int, service_data: ServiceUpdateI
     service = result.scalar_one_or_none()
 
     fields_to_update = ['executor_default_id', 'executor_additional_id', 'title', 'description', 'deadline_at',
-                        'material_availability', 'emergency',
-                        'custom_position', 'comment']
+                        'material_availability', 'emergency', 'custom_position']
 
     if customer_id:
         if service.customer_id != customer_id:
