@@ -58,7 +58,6 @@ class ServiceAssignInput(CustomModel):
     executor_default_id: int = False
     executor_additional_id: int | None = False
     deadline_at: datetime | None
-    comment: str | None = None
     emergency: bool | None = None
     custom_position: bool | None = None
 

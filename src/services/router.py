@@ -11,7 +11,7 @@ from src.auth.jwt import validate_admin_access, validate_customer_access, parse_
     validate_admin_and_customer_access
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus, Comments, Service
-from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceAssignInput, \
+from src.services.schemas import ServiceResponse, ServiceCreateInput, \
     CompaniesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
     ServicesListPaginatedSpecial, ServiceAssignInputRequest, CommentSchema, CommentResponse
 from src.services import service as services
