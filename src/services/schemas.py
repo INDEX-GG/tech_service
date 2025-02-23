@@ -5,22 +5,8 @@ from uuid import UUID
 from fastapi import UploadFile, File
 from pydantic import BaseModel
 
-from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes
+from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes, Roles
 from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
-
-
-class ServiceCreateByAdminInput(CustomModel):
-    customer_id: int
-    executor_default_id: int | None = None
-    executor_additional_id: int | None = None
-    title: str
-    description: str | None
-    material_availability: bool
-    emergency: bool
-    custom_position: bool
-    deadline_at: datetime | None
-    comment: str | None
-    # media_files:
 
 
 class ServiceCreateInput(CustomModel):
@@ -41,6 +27,9 @@ class CommentResponse(BaseModel):
     id: int
     service_id: UUID
     user_id: int
+    user_role: Roles | None
+    user_name: str | None
+    user_phone: str | None
     comments: str
     created_at: datetime
 
@@ -69,7 +58,6 @@ class ServiceAssignInput(CustomModel):
     executor_default_id: int = False
     executor_additional_id: int | None = False
     deadline_at: datetime | None
-    comment: str | None = None
     emergency: bool | None = None
     custom_position: bool | None = None
 
@@ -172,7 +160,6 @@ class ServiceUpdateInput(CustomModel):
     emergency: bool | None
     deadline_at: datetime | None
     custom_position: bool | None
-    comment: str | None
 
 
 class CommentSchema(CustomModel):

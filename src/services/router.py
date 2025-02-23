@@ -11,8 +11,8 @@ from src.auth.jwt import validate_admin_access, validate_customer_access, parse_
     validate_admin_and_customer_access
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus, Comments, Service
-from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
-    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
+from src.services.schemas import ServiceResponse, ServiceCreateInput, \
+    CompaniesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
     ServicesListPaginatedSpecial, ServiceAssignInputRequest, CommentSchema, CommentResponse
 from src.services import service as services
 from src.media import service as media_service
@@ -30,64 +30,6 @@ async def get_service_card(
     return service
 
 
-@router.post("/create_by_admin", status_code=status.HTTP_201_CREATED, response_model=ServiceResponse,
-             dependencies=[Depends(validate_admin_access)])
-async def create_new_service_by_admin(
-        customer_id: int = Form(...),
-        executor_default_id: int = Form(None),
-        executor_additional_id: int = Form(None),
-        title: str = Form(...),
-        description: str = Form(None),
-        material_availability: bool = Form(None),
-        emergency: bool = Form(None),
-        custom_position: bool = Form(None),
-        deadline_at: datetime = Form(None),
-        comment: str = Form(None),
-        video_file: UploadFile = File(None),
-        image_files: List[UploadFile] = File(None),
-        session: AsyncSession = Depends(get_async_session)
-) -> dict[str, Any]:
-    # if not video_file and not image_files:
-    #     raise HTTPException(status_code=400, detail="You must upload at least one file")
-
-    count_images = len(image_files) if image_files else 0
-    count_videos = 1 if video_file else 0
-
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos
-    if total_files > 3:
-        raise HTTPException(status_code=400, detail="Total files cannot exceed 3")
-
-    # Проверка на количество видео файлов
-    if video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="If there is a video, there can be at most 2 images")
-
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 3:
-        raise HTTPException(status_code=400, detail="If there is no video, there can be at most 3 images")
-
-    service_data = ServiceCreateByAdminInput(
-        customer_id=customer_id,
-        executor_default_id=executor_default_id,
-        executor_additional_id=executor_additional_id,
-        title=title,
-        description=description,
-        material_availability=material_availability,
-        emergency=emergency,
-        custom_position=custom_position,
-        deadline_at=deadline_at,
-        comment=comment
-    )
-
-    new_service = await services.create_new_service_by_admin(service_data.customer_id, service_data, video_file,
-                                                             image_files, session)
-
-    if not new_service:
-        raise HTTPException(status_code=400, detail="Ошибка создания заявки")
-
-    return new_service
-
-
 @router.post("/create", status_code=status.HTTP_201_CREATED, response_model=ServiceResponse,
              dependencies=[Depends(validate_customer_access)])
 async def create_new_service(
@@ -101,24 +43,17 @@ async def create_new_service(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ) -> dict[str, Any]:
-    # if not video_file and not image_files:
-    #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
-    count_images = len(image_files) if image_files else 0
-    count_videos = 1 if video_file else 0
-
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos
-    if total_files > 3:
-        raise HTTPException(status_code=400, detail="Total files cannot exceed 3")
+    total_images = len(image_files) if image_files else 0
+    total_videos = 1 if video_file else 0
 
     # Проверка на количество видео файлов
-    if video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="If there is a video, there can be at most 2 images")
+    if total_videos > 1:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 3:
-        raise HTTPException(status_code=400, detail="If there is no video, there can be at most 3 images")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
+
 
     service_data = ServiceCreateInput(
         title=title,
@@ -177,21 +112,15 @@ async def mark_service_verifying_by_executor(
     if not video_file and not image_files:
         raise HTTPException(status_code=400, detail="You must upload at least one file")
 
-    count_images = len(image_files) if image_files else 0
-    count_videos = 1 if video_file else 0
-
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos
-    if total_files > 2:
-        raise HTTPException(status_code=400, detail="Total files cannot exceed 2")
+    total_images = len(image_files) if image_files else 0
+    total_videos = 1 if video_file else 0
 
     # Проверка на количество видео файлов
-    if video_file and count_images > 1:
-        raise HTTPException(status_code=400, detail="If there is a video, there can be at most 1 image")
+    if total_videos > 1:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="If there is no video, there can be at most 2 images")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
 
     owner_type = OwnerTypes.EXECUTOR
 
@@ -377,7 +306,7 @@ async def get_all_customer_services_by_status(
 
 
 @router.delete("/delete/{service_id}", status_code=status.HTTP_204_NO_CONTENT,
-               dependencies=[Depends(validate_admin_access)])
+               dependencies=[Depends(validate_customer_access)])
 async def delete_service_by_id(
         service_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session)
@@ -397,7 +326,6 @@ async def edit_service_by_customer(
         emergency: bool = Form(None),
         deadline_at: datetime = Form(None),
         custom_position: bool = Form(None),
-        comment: str = Form(None),
         current_files: str = Form(None),
         video_file: UploadFile = File(None),
         image_files: List[UploadFile] = File(None),
@@ -422,22 +350,14 @@ async def edit_service_by_customer(
     count_images = len(image_files) if image_files else 0
     count_videos = 1 if video_file else 0
 
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos + db_image_counter + db_video_counter
     total_images = count_images + db_image_counter
     total_videos = count_videos + db_video_counter
-
-    if total_files > 3 or total_images > 3:
-        raise HTTPException(status_code=400, detail="Заявка не может содержать более 3 файлов")
 
     if total_videos > 1:
         raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    if total_videos == 1 and total_images > 2:
-        raise HTTPException(status_code=400, detail="При наличии видео, кол-во фотографий не может превышать 2")
-
-    if total_videos == 0 and total_images > 3:
-        raise HTTPException(status_code=400, detail="При отсутствии видео, кол-во фотографий не может превышать 3")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
 
     service_data = ServiceUpdateInput(
         service_id=service_id,
@@ -449,7 +369,6 @@ async def edit_service_by_customer(
         emergency=emergency,
         deadline_at=deadline_at,
         custom_position=custom_position,
-        comment=comment
     )
 
     owner_type = OwnerTypes.CUSTOMER
@@ -484,7 +403,12 @@ async def add_executor_comments(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
+    user = await session.get(User, current_user.user_id)
     service = await session.get(Service, service_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
     if not service:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
 
@@ -494,6 +418,9 @@ async def add_executor_comments(
     new_comment = Comments(
         service_id=service_id,
         user_id=current_user.user_id,
+        user_role=user.role,
+        user_name=user.name,
+        user_phone=user.phone,
         comments=comment_data.comment,
         created_at=datetime.utcnow()
     )
