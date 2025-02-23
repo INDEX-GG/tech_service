@@ -1,3 +1,5 @@
+import os
+import shutil
 from typing import Any, List
 from uuid import UUID
 
@@ -876,9 +878,16 @@ async def delete_service(service_id: UUID, session: AsyncSession):
         if service is None:
             raise NoResultFound()
 
-        # Delete associated media_files first
-        for media_file in service.media_files:
-            await session.delete(media_file)
+        # Удаляем связанные файлы из файловой системы
+        media_images_folder = f"./static/images/{service_id}"
+        if os.path.exists(media_images_folder):
+            shutil.rmtree(media_images_folder)
+            print(f"Удалена папка с фото: {media_images_folder}")
+
+        media_videos_folder = f"./static/videos/{service_id}"
+        if os.path.exists(media_videos_folder):
+            shutil.rmtree(media_videos_folder)
+            print(f"Удалена папка с видео: {media_videos_folder}")
 
         # Now, delete the service
         await session.delete(service)
