@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import UploadFile, File
 from pydantic import BaseModel
 
-from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes
+from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes, Roles
 from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 
@@ -41,6 +41,9 @@ class CommentResponse(BaseModel):
     id: int
     service_id: UUID
     user_id: int
+    user_role: Roles | None
+    user_name: str | None
+    user_phone: str | None
     comments: str
     created_at: datetime
 
@@ -176,6 +179,7 @@ class ServiceUpdateInput(CustomModel):
 
 
 class CommentSchema(CustomModel):
+    service_id: UUID
     comment: str
 
 

@@ -12,7 +12,7 @@ from src.auth.jwt import validate_admin_access, validate_customer_access, parse_
 from src.database import get_async_session
 from src.models import User, OwnerTypes, ServiceStatus, Comments, Service
 from src.services.schemas import ServiceResponse, ServiceCreateInput, ServiceCreateByAdminInput, ServiceAssignInput, \
-    CompaniesListPaginated, ServicesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
+    CompaniesListPaginated, CustomerServicesListPaginated, ServiceUpdateInput, \
     ServicesListPaginatedSpecial, ServiceAssignInputRequest, CommentSchema, CommentResponse
 from src.services import service as services
 from src.media import service as media_service
@@ -477,14 +477,18 @@ async def edit_service_by_customer(
     return updated_service
 
 
-@router.post("/comments/{service_id}")
+@router.post("/comments")
 async def add_executor_comments(
-        service_id: str,
         comment_data: CommentSchema,
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
-    service = await session.get(Service, service_id)
+    user = await session.get(User, current_user.user_id)
+    service = await session.get(Service, comment_data.service_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
     if not service:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
 
@@ -492,8 +496,11 @@ async def add_executor_comments(
         raise HTTPException(status_code=403, detail="Вы не можете оставлять комментарий")
 
     new_comment = Comments(
-        service_id=service_id,
+        service_id=comment_data.service_id,
         user_id=current_user.user_id,
+        user_role=user.role,
+        user_name=user.name,
+        user_phone=user.phone,
         comments=comment_data.comment,
         created_at=datetime.utcnow()
     )

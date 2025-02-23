@@ -215,6 +215,9 @@ class Comments(Base):
     id = Column(Integer, primary_key=True, index=True, unique=True, nullable=False)
     service_id = Column(UUID(as_uuid=True), ForeignKey("public.services.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_role = Column(EnumSQL(Roles), index=True)
+    user_name = Column(String, index=True, nullable=True)
+    user_phone = Column(String, index=True, nullable=True)
     comments = Column("comments", String, nullable=False)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
     updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
@@ -261,3 +264,4 @@ async def fetch_one(select_query: Select | Insert | Update) -> dict[str, Any] | 
 async def execute(select_query: Insert | Update) -> None:
     async with engine.begin() as conn:
         await conn.execute(select_query)
+
