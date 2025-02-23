@@ -10,87 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
 from src.models import Service, ServiceStatus, User, Company, OwnerTypes, Roles
-from src.services.schemas import ServiceCreateInput, ServiceCreateByAdminInput, ServiceUpdateInput
+from src.services.schemas import ServiceCreateInput, ServiceUpdateInput
 from src.users.service import get_user_profile_by_id, get_user_by_role, get_user_executor_default
 from src.media import service as media_service
-
-
-async def create_new_service_by_admin(
-        customer_id: int,
-        service_data: ServiceCreateByAdminInput,
-        video_file: UploadFile,
-        image_files: List[UploadFile],
-        session: AsyncSession
-) -> dict[str, Any] | None:
-    try:
-        if customer_id in [service_data.executor_default_id, service_data.executor_additional_id]:
-            raise ValueError("Вы не можете назначить исполнение заявки заказчику")
-
-        customer = await get_user_profile_by_id(customer_id, session)
-
-        executor_default = customer.customer_company.executor_default_id
-        executor_default_id = executor_default if service_data.executor_default_id is None else service_data.executor_default_id
-
-        executor_additional = customer.customer_company.executor_additional_id
-        executor_additional_id = executor_additional if service_data.executor_additional_id is None else service_data.executor_additional_id
-
-        new_service = Service(
-            customer_id=customer_id,
-            executor_default_id=executor_default_id,
-            executor_additional_id=executor_additional_id,
-            company_id=customer.customer_company.id,
-            title=service_data.title,
-            description=service_data.description,
-            material_availability=service_data.material_availability,
-            emergency=service_data.emergency,
-            custom_position=service_data.custom_position,
-            viewed_admin=True,
-            deadline_at=service_data.deadline_at,
-            updated_at=func.now(),
-            comment=service_data.comment,
-            status=ServiceStatus.WORKING
-        )
-
-        session.add(new_service)
-        await session.commit()
-        await session.refresh(new_service)
-
-        new_service.customer = customer
-
-        executor = await get_user_by_role(executor_default_id, "is_executor", session)
-        new_service.executor_default = executor
-
-        if executor_additional_id:
-            executor = await get_user_by_role(executor_additional_id, "is_executor", session)
-            new_service.executor_additional = executor
-
-        owner_type = OwnerTypes.CUSTOMER
-
-        if video_file:
-            uploaded_video = await media_service.save_video(video_file=video_file, service_id=new_service.id,
-                                                            owner_type=owner_type)
-            if not uploaded_video:
-                raise ValueError("Ошибка загрузки видео")
-
-        if image_files:
-            uploaded_image = await media_service.save_images(image_files=image_files, service_id=new_service.id,
-                                                             owner_type=owner_type)
-            if not uploaded_image:
-                raise ValueError("Ошибка загрузки фото")
-
-        media_files = await get_media_files_by_service_id(new_service.id, session)
-        new_service.media_files = media_files
-
-        return new_service
-
-    except Exception as e:
-        # Обработка ошибок
-        print(f"Error creating service by admin: {e}")
-        await session.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        # закрыть сессию после выполнения операций
-        await session.close()
 
 
 async def create_new_service_by_customer(

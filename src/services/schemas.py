@@ -9,20 +9,6 @@ from src.models import CustomModel, ServiceStatus, FileTypes, OwnerTypes, Roles
 from src.users.schemas import CustomerUserResponse, ExecutorUserResponse
 
 
-class ServiceCreateByAdminInput(CustomModel):
-    customer_id: int
-    executor_default_id: int | None = None
-    executor_additional_id: int | None = None
-    title: str
-    description: str | None
-    material_availability: bool
-    emergency: bool
-    custom_position: bool
-    deadline_at: datetime | None
-    comment: str | None
-    # media_files:
-
-
 class ServiceCreateInput(CustomModel):
     title: str
     description: str | None
