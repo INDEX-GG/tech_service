@@ -43,24 +43,17 @@ async def create_new_service(
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ) -> dict[str, Any]:
-    # if not video_file and not image_files:
-    #     raise HTTPException(status_code=400, detail="You must upload at least one file")
 
-    count_images = len(image_files) if image_files else 0
-    count_videos = 1 if video_file else 0
-
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos
-    if total_files > 3:
-        raise HTTPException(status_code=400, detail="Total files cannot exceed 3")
+    total_images = len(image_files) if image_files else 0
+    total_videos = 1 if video_file else 0
 
     # Проверка на количество видео файлов
-    if video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="If there is a video, there can be at most 2 images")
+    if total_videos > 1:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 3:
-        raise HTTPException(status_code=400, detail="If there is no video, there can be at most 3 images")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
+
 
     service_data = ServiceCreateInput(
         title=title,
@@ -119,21 +112,15 @@ async def mark_service_verifying_by_executor(
     if not video_file and not image_files:
         raise HTTPException(status_code=400, detail="You must upload at least one file")
 
-    count_images = len(image_files) if image_files else 0
-    count_videos = 1 if video_file else 0
-
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos
-    if total_files > 2:
-        raise HTTPException(status_code=400, detail="Total files cannot exceed 2")
+    total_images = len(image_files) if image_files else 0
+    total_videos = 1 if video_file else 0
 
     # Проверка на количество видео файлов
-    if video_file and count_images > 1:
-        raise HTTPException(status_code=400, detail="If there is a video, there can be at most 1 image")
+    if total_videos > 1:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    # Проверка на количество фото файлов
-    if not video_file and count_images > 2:
-        raise HTTPException(status_code=400, detail="If there is no video, there can be at most 2 images")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
 
     owner_type = OwnerTypes.EXECUTOR
 
@@ -363,22 +350,14 @@ async def edit_service_by_customer(
     count_images = len(image_files) if image_files else 0
     count_videos = 1 if video_file else 0
 
-    # Проверка общего числа файлов
-    total_files = count_images + count_videos + db_image_counter + db_video_counter
     total_images = count_images + db_image_counter
     total_videos = count_videos + db_video_counter
-
-    if total_files > 3 or total_images > 3:
-        raise HTTPException(status_code=400, detail="Заявка не может содержать более 3 файлов")
 
     if total_videos > 1:
         raise HTTPException(status_code=400, detail="Заявка не может содержать более 1 видео")
 
-    if total_videos == 1 and total_images > 2:
-        raise HTTPException(status_code=400, detail="При наличии видео, кол-во фотографий не может превышать 2")
-
-    if total_videos == 0 and total_images > 3:
-        raise HTTPException(status_code=400, detail="При отсутствии видео, кол-во фотографий не может превышать 3")
+    if total_images > 5:
+        raise HTTPException(status_code=400, detail="Заявка не может содержать более 5 фото")
 
     service_data = ServiceUpdateInput(
         service_id=service_id,
