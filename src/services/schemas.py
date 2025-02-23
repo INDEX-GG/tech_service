@@ -179,7 +179,6 @@ class ServiceUpdateInput(CustomModel):
 
 
 class CommentSchema(CustomModel):
-    service_id: UUID
     comment: str
 
 

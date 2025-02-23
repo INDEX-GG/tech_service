@@ -477,14 +477,15 @@ async def edit_service_by_customer(
     return updated_service
 
 
-@router.post("/comments")
+@router.post("/comments/{service_id}")
 async def add_executor_comments(
+        service_id: str,
         comment_data: CommentSchema,
         session: AsyncSession = Depends(get_async_session),
         current_user: User = Depends(parse_jwt_user_data)
 ):
     user = await session.get(User, current_user.user_id)
-    service = await session.get(Service, comment_data.service_id)
+    service = await session.get(Service, service_id)
 
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
@@ -496,7 +497,7 @@ async def add_executor_comments(
         raise HTTPException(status_code=403, detail="Вы не можете оставлять комментарий")
 
     new_comment = Comments(
-        service_id=comment_data.service_id,
+        service_id=service_id,
         user_id=current_user.user_id,
         user_role=user.role,
         user_name=user.name,
