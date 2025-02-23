@@ -339,7 +339,6 @@ async def edit_service_by_customer(
         emergency: bool = Form(None),
         deadline_at: datetime = Form(None),
         custom_position: bool = Form(None),
-        comment: str = Form(None),
         current_files: str = Form(None),
         video_file: UploadFile = File(None),
         image_files: List[UploadFile] = File(None),
@@ -391,7 +390,6 @@ async def edit_service_by_customer(
         emergency=emergency,
         deadline_at=deadline_at,
         custom_position=custom_position,
-        comment=comment
     )
 
     owner_type = OwnerTypes.CUSTOMER

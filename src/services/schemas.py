@@ -160,7 +160,6 @@ class ServiceUpdateInput(CustomModel):
     emergency: bool | None
     deadline_at: datetime | None
     custom_position: bool | None
-    comment: str | None
 
 
 class CommentSchema(CustomModel):
