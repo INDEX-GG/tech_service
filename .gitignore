@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-alembic/versions/*
 .env
 .env.example
 # C extensions
