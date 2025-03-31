@@ -9,13 +9,9 @@ services:
       - app_pg_data:/var/lib/postgresql/data
       - app_pg_data_backups:/backups
       - ./scripts/postgres:/scripts
-    command: postgres -p 5433
+    command: -p 5433
     ports:
-      - "5432:5433"  # Проброс порта 5432 хоста в порт 5433 контейнера
-    environment:
-      POSTGRES_LISTEN_ADDRESSES: '*'
-      POSTGRES_HOST_AUTH_METHOD: trust
-
+      - "5432:5433"
 
   tech_service_app:
     container_name: tech_service
