@@ -106,7 +106,7 @@ class CreateCustomerInput(CustomModel):
     opening_time: str
     closing_time: str
     executor_default_id: int
-    executor_additional_id: int = None
+    executor_additional_id: int | None = None
     only_weekdays: bool
     contacts: List[CustomerContacts]
 
