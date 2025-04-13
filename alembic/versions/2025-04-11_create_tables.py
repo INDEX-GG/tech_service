@@ -1,8 +1,8 @@
-"""add refuse
+"""Create tables
 
-Revision ID: 383e3cf72c3f
+Revision ID: 6a1ea56b96c9
 Revises: 
-Create Date: 2025-01-29 18:10:45.387137
+Create Date: 2025-04-11 16:20:53.974997
 
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "383e3cf72c3f"
+revision = "6a1ea56b96c9"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -194,11 +194,9 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=True
         ),
         sa.Column("deadline_at", sa.DateTime(), nullable=True),
-        sa.Column("comment", sa.String(), nullable=True),
         sa.Column(
             "status",
             sa.Enum(
-                "NEW",
                 "WORKING",
                 "VERIFYING",
                 "CLOSED",
@@ -259,6 +257,45 @@ def upgrade() -> None:
         op.f("ix_public_services_id"), "services", ["id"], unique=False, schema="public"
     )
     op.create_table(
+        "comments",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("service_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column(
+            "user_role",
+            sa.Enum("UNBIND", "ADMIN", "CUSTOMER", "EXECUTOR", name="roles"),
+            nullable=True,
+        ),
+        sa.Column("user_name", sa.String(), nullable=True),
+        sa.Column("user_phone", sa.String(), nullable=True),
+        sa.Column("comments", sa.String(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=True
+        ),
+        sa.ForeignKeyConstraint(
+            ["service_id"], ["public.services.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["public.users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_comments_id"), "comments", ["id"], unique=True)
+    op.create_index(
+        op.f("ix_comments_service_id"), "comments", ["service_id"], unique=False
+    )
+    op.create_index(op.f("ix_comments_user_id"), "comments", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_comments_user_name"), "comments", ["user_name"], unique=False
+    )
+    op.create_index(
+        op.f("ix_comments_user_phone"), "comments", ["user_phone"], unique=False
+    )
+    op.create_index(
+        op.f("ix_comments_user_role"), "comments", ["user_role"], unique=False
+    )
+    op.create_table(
         "media_files",
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("service_id", sa.UUID(), nullable=False),
@@ -306,6 +343,13 @@ def downgrade() -> None:
         op.f("ix_public_media_files_id"), table_name="media_files", schema="public"
     )
     op.drop_table("media_files", schema="public")
+    op.drop_index(op.f("ix_comments_user_role"), table_name="comments")
+    op.drop_index(op.f("ix_comments_user_phone"), table_name="comments")
+    op.drop_index(op.f("ix_comments_user_name"), table_name="comments")
+    op.drop_index(op.f("ix_comments_user_id"), table_name="comments")
+    op.drop_index(op.f("ix_comments_service_id"), table_name="comments")
+    op.drop_index(op.f("ix_comments_id"), table_name="comments")
+    op.drop_table("comments")
     op.drop_index(op.f("ix_public_services_id"), table_name="services", schema="public")
     op.drop_index(
         op.f("ix_public_services_executor_default_id"),
