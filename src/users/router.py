@@ -24,6 +24,7 @@ from src.users.schemas import (
     ExecutorUserResponse,
     UserResponse, EditCustomerContacts, CompanyContacts,
 )
+from src.users.service import convert_user_to_legacy_format
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def get_my_account(
 async def get_customer_account(
         user_id: int,
         session: AsyncSession = Depends(get_async_session)
-) -> dict[str, Any]:
+) -> Any:
     role = "is_customer"
     user = await users_service.get_user_by_role(user_id, role, session)
 
@@ -121,7 +122,6 @@ async def create_new_executor(
         session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, Any]:
     user = await auth_service.get_user_by_username(executor_data.username, session)
-    print(user)
     if user:
         raise UsernameTaken()
 

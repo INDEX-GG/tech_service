@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -12,13 +12,66 @@ from src.models import Company, CompanyContacts, User, Roles, RefreshTokens
 from src.users.schemas import CreateCustomerInput, CreateExecutorInput, EditUserCredentials, EditUserPersonalData, \
     EditCustomerCompany, EditCustomerContacts
 
+def convert_user_to_legacy_format(user: User) -> Any:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "password": user.password,  # или убери, если в старом API не отдавался
+        "is_active": user.is_active,
+        "is_admin": user.is_admin,
+        "is_customer": user.is_customer,
+        "is_executor": user.is_executor,
+        "role": user.role,
+        "name": user.name,
+        "phone": user.phone,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        # customer_company, customer_services и executor_services остались теми же
+        "customer_company": {
+            "id": user.customer_company.id,
+            "name": user.customer_company.name,
+            # добавь поля, которые были нужны в старом API
+        } if user.customer_company else None,
+        # Пример: можно вернуть список ID связанных сервисов
+        # "customer_services": [s.id for s in user.customer_services],
+        # "executor_services": [s.id for s in user.executor_services],  # старое поле
+    }
+
+def convert_company_to_legacy(company: Company) -> Any:
+    return {
+        "id": company.id,
+        "user_id": company.user_id,
+        "name": company.name,
+        "address": company.address,
+        "opening_time": company.opening_time,
+        "closing_time": company.closing_time,
+        "only_weekdays": company.only_weekdays,
+        "updated_at": company.updated_at,
+        "contacts": [
+            {
+                "id": contact.id,
+                "type": contact.type,
+                "value": contact.value
+            }
+            for contact in company.contacts
+        ] if company.contacts else [],
+        "services": [
+            {
+                "id": service.id,
+                "status": service.status.name,
+                "updated_at": service.updated_at
+            }
+            for service in company.services
+        ] if company.services else []
+    }
+
 
 async def get_user_profile_by_id(user_id: int, session: AsyncSession) -> dict[str, Any] | None:
     select_query = select(User).where(User.id == user_id).options(
         selectinload(User.customer_company).selectinload(Company.contacts))
     model = await session.execute(select_query)
     user = model.scalar_one_or_none()
-    return user
+    return convert_user_to_legacy_format(user)
 
 
 async def get_user_by_role(user_id: int, role: str, session: AsyncSession) -> dict[str, Any] | None:
@@ -32,6 +85,7 @@ async def get_user_by_role(user_id: int, role: str, session: AsyncSession) -> di
 
     user = await session.execute(select_query)
     response = user.scalar_one_or_none()
+    print(response)
     return response
 
 
@@ -61,7 +115,7 @@ async def get_customers(search: str, offset: int, limit: int, session: AsyncSess
 
     select_query = (
         select(User.id, Company.id, Company.name, Company.address)
-        .join(Company)
+        .join(Company, User.id == Company.user_id)
         .where(base_condition, User.is_active)
         .order_by(desc(User.created_at))
         .offset(offset)
@@ -139,7 +193,7 @@ async def get_executors(search: str, offset: int, limit: int, session: AsyncSess
     return response
 
 
-async def create_executor(executor_data: CreateExecutorInput, session: AsyncSession) -> dict[str, Any] | None:
+async def create_executor(executor_data: CreateExecutorInput, session: AsyncSession) -> Any:
     try:
         executor = User(
             username=executor_data.username,
@@ -167,7 +221,7 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
         await session.close()
 
 
-async def create_customer(customer_data: CreateCustomerInput, session: AsyncSession) -> dict[str, Any] | None:
+async def create_customer(customer_data: CreateCustomerInput, session: AsyncSession) -> Any:
     try:
         customer = User(
             username=customer_data.username,
@@ -183,6 +237,7 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
 
         customer_company = Company(
             user_id=customer.id,
+            executor_default_id=102,
             name=customer_data.name,
             address=customer_data.address,
             opening_time=customer_data.opening_time,
@@ -250,7 +305,7 @@ async def edit_credentials(user_id: int, user_data: EditUserCredentials, session
 
             await session.commit()
             await session.refresh(user)
-            return user
+            return convert_user_to_legacy_format(user)
     return None
 
 
@@ -272,7 +327,7 @@ async def edit_personal_data(
 
             await session.commit()
             await session.refresh(user)
-            return user
+            return convert_user_to_legacy_format(user)
     return None
 
 
@@ -280,7 +335,7 @@ async def get_company_by_id(company_id: UUID, session: AsyncSession):
     select_query = select(Company).where(Company.id == company_id).options(selectinload(Company.contacts))
     model = await session.execute(select_query)
     company = model.scalar_one_or_none()
-    return company
+    return convert_company_to_legacy(company)
 
 
 async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany, session: AsyncSession) -> dict[str, Any] | None:
@@ -300,7 +355,7 @@ async def edit_users_company(company_id: UUID, company_data: EditCustomerCompany
 
         await session.commit()
         await session.refresh(company)
-        return company
+        return convert_company_to_legacy(company)
     return None
 
 
