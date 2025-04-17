@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.config import app_configs, settings
+from src.config import app_configs, settings, DEFAULT_SUB_DOMAIN
 from src.database import create_tables
 from src.routers import api_router
 # from src.auth.router import router as auth_router
@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 # app = FastAPI(**app_configs, root_path="/api/v2")
 
 app = FastAPI(**app_configs)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(api_router)
@@ -26,8 +27,11 @@ app.add_middleware(
     allow_headers=settings.CORS_HEADERS,
 )
 
-app.openapi_url = "/openapi.json"
-
+APP_DOMAIN = settings.SUB_DOMAIN if settings.SUB_DOMAIN != DEFAULT_SUB_DOMAIN else ""
+app.openapi_url = f"{APP_DOMAIN}/openapi.json"
+app.servers = [
+    {"url": settings.SUB_DOMAIN, "description": "Base API"}
+]
 
 #@app.get("/healthcheck", include_in_schema=False)
 #async def healthcheck() -> dict[str, str]:
@@ -37,12 +41,17 @@ app.openapi_url = "/openapi.json"
 #    return {"status": "ok"}
 
 
+@app.get("/versions", include_in_schema=False)
+async def versions() -> FileResponse:
+    return FileResponse("templates/versions.json", media_type="application/json")
+
+
 @app.get("/policy", include_in_schema=False)
 async def policy() -> FileResponse:
     return FileResponse("templates/policy.html", media_type="text/html")
 
 
-@app.get("/user-accept", include_in_schema=False)
+@app.get("/user_accept", include_in_schema=False)
 async def user_accept() -> FileResponse:
     return FileResponse("templates/user_accept.html", media_type="text/html")
 

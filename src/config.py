@@ -8,10 +8,12 @@ from src.constants import Environment
 
 load_dotenv()
 
+DEFAULT_SUB_DOMAIN: str = "/app"
 
 class Config(BaseSettings):
     DATABASE_URL: PostgresDsn
 
+    SUB_DOMAIN: str = DEFAULT_SUB_DOMAIN
     SITE_DOMAIN: str = "myapp.com"
 
     ENVIRONMENT: Environment = Environment.PRODUCTION
@@ -30,7 +32,7 @@ settings = Config()
 
 app_configs: dict[str, Any] = {
     "title": "App API",
-    "version": settings.VERSION
+    "version": settings.VERSION,
 }
 
 # if not settings.ENVIRONMENT.is_debug:
