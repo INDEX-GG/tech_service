@@ -1,14 +1,12 @@
-# import bcrypt
+import bcrypt
 
+def hash_password(password: str) -> str:
+    pw_bytes = password.encode("utf-8")
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pw_bytes, salt)
+    return hashed.decode("utf-8")
 
-# def hash_password(password: str) -> bytes:
-#     pw = bytes(password, "utf-8")
-#     salt = bcrypt.gensalt()
-#     return bcrypt.hashpw(pw, salt)
-
-
-def check_password(password: str, password_in_db: str) -> bool:
-    # password_bytes = bytes(password, "utf-8")
-    # return bcrypt.checkpw(password_bytes, password_in_db)
-    # print('password_in_db', password_in_db)
-    return password == password_in_db
+def check_password(plain_password: str, hashed_password: str) -> bool:
+    password_bytes = plain_password.encode("utf-8")
+    hashed_bytes = hashed_password.encode("utf-8")
+    return bcrypt.checkpw(password_bytes, hashed_bytes)

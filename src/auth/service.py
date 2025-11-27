@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi.security import OAuth2PasswordRequestForm
@@ -11,23 +11,22 @@ from src import utils
 from src.auth.config import auth_config
 from src.auth.exceptions import InvalidCredentials
 from src.auth.schemas import AuthUser
-from src.auth.security import check_password
-from src.models import RefreshTokens, User, execute, fetch_one
+from src.auth.security import check_password, hash_password
+from src.models import RefreshTokens, User, execute, fetch_one, Roles
 
 
 async def create_user(user: AuthUser) -> dict[str, Any] | None:
     insert_query = (
         insert(User)
         .values(
-            {
-                "username": user.username,
-                "password": user.password,
-                "created_at": datetime.utcnow(),
-            }
+            username=user.username,
+            password=hash_password(user.password),
+            is_executor=True,
+            role=Roles.EXECUTOR,
+            created_at=datetime.utcnow(),
         )
         .returning(User)
     )
-
     return await fetch_one(insert_query)
 
 

@@ -1,31 +1,33 @@
 import re
-
-from pydantic import Field, field_validator
-
+from pydantic import EmailStr, Field, field_validator
 from src.models import CustomModel, Roles
 
-# STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[\d])(?=.*[!@#$%^&*])[\w!@#$%^&*]{6,128}$")
-WEAK_PASSWORD_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{3,128}$")
+# Разрешённые спецсимволы — можно настроить
+SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?"
 
 
 class AuthUser(CustomModel):
-    username: str = Field(min_length=3, max_length=128)
-    password: str = Field(min_length=3, max_length=128)
+    username: EmailStr = Field(min_length=3, max_length=128)
+    password: str = Field(min_length=8, max_length=30)
 
     @field_validator("password", mode="after")
     @classmethod
-    def valid_password(cls, password: str) -> str:
-        if not re.match(WEAK_PASSWORD_PATTERN, password):
-            raise ValueError(
-                "Пароль не должен содержать "
-                "спец. символы"
-                # "one lower character, "
-                # "one upper character, "
-                # "digit or "
-                # "special symbol"
-            )
+    def valid_password(cls, v: str) -> str:
+        escaped = re.escape(SPECIAL_CHARS)
 
-        return password
+        if not re.fullmatch(rf"[a-zA-Z0-9{escaped}]+", v):
+            raise ValueError(f"Разрешены только английские буквы, цифры и следующие спецсимволы: {SPECIAL_CHARS}")
+
+        if not re.search(r"[a-zA-Z]", v):
+            raise ValueError("Пароль должен содержать хотя бы одну английскую букву.")
+
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Пароль должен содержать хотя бы одну цифру.")
+
+        if not re.search(rf"[{escaped}]", v):
+            raise ValueError(f"Пароль должен содержать хотя бы один из следующих спецсимволов: {SPECIAL_CHARS}")
+
+        return v
 
 
 class JWTData(CustomModel):
@@ -44,5 +46,3 @@ class AccessTokenResponse(CustomModel):
 
 class RegisterUserResponse(CustomModel):
     username: str
-
-
