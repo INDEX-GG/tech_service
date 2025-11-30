@@ -1,31 +1,65 @@
 import re
-from pydantic import EmailStr, Field, field_validator
+from fastapi import HTTPException, status
+from pydantic import BaseModel, Field, field_validator
 from src.models import CustomModel, Roles
 
-# Разрешённые спецсимволы — можно настроить
+
 SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?"
 
 
 class AuthUser(CustomModel):
-    username: EmailStr = Field(min_length=3, max_length=128)
-    password: str = Field(min_length=8, max_length=30)
+    username: str
+    password: str
+
+    @field_validator("username")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", v):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Некорректный адрес электронной почты."
+            )
+        return v
 
     @field_validator("password", mode="after")
     @classmethod
     def valid_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Пароль должен содержать не менее 8 символов."
+            )
+        if len(v) > 30:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Пароль должен содержать не более 30 символов."
+            )
+
         escaped = re.escape(SPECIAL_CHARS)
 
         if not re.fullmatch(rf"[a-zA-Z0-9{escaped}]+", v):
-            raise ValueError(f"Разрешены только английские буквы, цифры и следующие спецсимволы: {SPECIAL_CHARS}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Разрешены только английские буквы, цифры и следующие спецсимволы: {SPECIAL_CHARS}"
+            )
 
         if not re.search(r"[a-zA-Z]", v):
-            raise ValueError("Пароль должен содержать хотя бы одну английскую букву.")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Пароль должен содержать хотя бы одну английскую букву."
+            )
 
         if not re.search(r"[0-9]", v):
-            raise ValueError("Пароль должен содержать хотя бы одну цифру.")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Пароль должен содержать хотя бы одну цифру."
+            )
 
         if not re.search(rf"[{escaped}]", v):
-            raise ValueError(f"Пароль должен содержать хотя бы один из следующих спецсимволов: {SPECIAL_CHARS}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Пароль должен содержать хотя бы один из следующих спецсимволов: {SPECIAL_CHARS}"
+            )
 
         return v
 
