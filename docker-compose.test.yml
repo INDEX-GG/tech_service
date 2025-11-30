@@ -1,3 +1,5 @@
+# docker-compose.yml
+
 services:
   test_tech_service_db_host:
     container_name: test_tech_service_db
@@ -13,6 +15,17 @@ services:
 #      - 5434
     ports:
       - "5434:5432"
+    environment:
+      POSTGRES_DB: resto_service
+      POSTGRES_USER: tech_service_app
+      POSTGRES_PASSWORD: tech_service_app
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   test_tech_service_app:
     container_name: test_tech_service
@@ -28,6 +41,7 @@ services:
       - "5953:8000"
     depends_on:
       - test_tech_service_db_host
+      - mailhog
 
 volumes:
   test_app_pg_data:
