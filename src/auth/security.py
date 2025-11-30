@@ -1,12 +1,31 @@
 import bcrypt
 
-def hash_password(password: str) -> str:
-    pw_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(pw_bytes, salt)
-    return hashed.decode("utf-8")
+def is_bcrypt_hash(s: str) -> bool:
+    """Проверяет, является ли строка валидным bcrypt-хешем."""
+    return (
+        isinstance(s, str)
+        and len(s) == 60
+        and s.startswith(("$2b$", "$2a$", "$2y$"))
+    )
 
-def check_password(plain_password: str, hashed_password: str) -> bool:
-    password_bytes = plain_password.encode("utf-8")
-    hashed_bytes = hashed_password.encode("utf-8")
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+def hash_password(password: str) -> str:
+    """Хеширует пароль с использованием bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def check_password(plain_password: str, stored_password: str) -> bool:
+    """
+    Проверяет пароль.
+    Поддерживает:
+      - bcrypt-хеши (новые пользователи)
+      - plaintext (старые пользователи)
+    """
+    if is_bcrypt_hash(stored_password):
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                stored_password.encode("utf-8")
+            )
+        except ValueError:
+            return False
+    else:
+        return plain_password == stored_password
