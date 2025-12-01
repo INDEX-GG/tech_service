@@ -163,7 +163,7 @@ async def create_executor(executor_data: CreateExecutorInput, session: AsyncSess
     try:
         executor = User(
             username=executor_data.username,
-            password=hash_password(executor_data.password),
+            password=executor_data.password,
             is_active=True,
             is_executor=True,
             name=executor_data.name,
@@ -226,7 +226,7 @@ async def create_customer(customer_data: CreateCustomerInput, session: AsyncSess
     try:
         customer = User(
             username=customer_data.username,
-            password=hash_password(customer_data.password),
+            password=customer_data.password,
             is_active=True,
             is_customer=True,
             role=Roles.CUSTOMER
@@ -311,7 +311,7 @@ async def edit_credentials(user_id: int, user_data: EditUserCredentials, session
             if user_data.username:
                 user.username = user_data.username
             if user_data.password:
-                user.password = hash_password(user_data.password)
+                user.password = user_data.password
 
             await session.commit()
             await session.refresh(user)
