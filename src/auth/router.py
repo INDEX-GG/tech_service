@@ -111,5 +111,6 @@ async def reset_password(
 
     await service.update_user_password(token_data["user_id"], request.new_password, session)
     await service.expire_password_reset_token(request.token)
+    await service.expire_all_refresh_tokens(token_data["user_id"])
 
     return {"msg": "Пароль успешно обновлён."}

@@ -134,3 +134,10 @@ async def generate_unique_code() -> str:
         )
         if not existing:
             return code
+
+async def expire_all_refresh_tokens(user_id: int) -> None:
+    await execute(
+        update(RefreshTokens)
+        .where(RefreshTokens.user_id == user_id)
+        .values(expires_at=datetime.utcnow() - timedelta(days=1))
+    )
