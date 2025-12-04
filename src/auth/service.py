@@ -24,6 +24,7 @@ async def create_user(user: AuthUser) -> dict[str, Any] | None:
             password=hash_password(user.password),
             is_executor=True,
             role=Roles.EXECUTOR,
+            name='Новый пользователь',
             is_active=True,
             created_at=datetime.utcnow(),
         )
