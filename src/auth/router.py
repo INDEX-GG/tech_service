@@ -81,7 +81,7 @@ async def forgot_password(
     if not is_password_reset_allowed(user.username):
         return {"msg": "Подождите 5 минут до следующей попытки ."}
 
-    token = generate_random_alphanum(64)
+    token = await service.generate_unique_code()
     await service.create_password_reset_token(user.id, token)
 
     background_tasks.add_task(

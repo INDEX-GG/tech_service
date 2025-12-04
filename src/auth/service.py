@@ -1,3 +1,4 @@
+import random
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -90,7 +91,7 @@ async def authenticate_user(auth_data: OAuth2PasswordRequestForm, session: Async
 
 
 async def create_password_reset_token(user_id: int, token: str) -> None:
-    expires_at = datetime.utcnow() + timedelta(minutes=30)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
     await execute(
         insert(PasswordResetToken).values(
             token=token,
@@ -124,3 +125,12 @@ async def update_user_password(user_id: int, new_password: str, session: AsyncSe
         .values(password=hash_password(new_password))
     )
     await session.commit()
+
+async def generate_unique_code() -> str:
+    while True:
+        code = str(random.randint(100000, 999999))
+        existing = await fetch_one(
+            select(PasswordResetToken).where(PasswordResetToken.token == code)
+        )
+        if not existing:
+            return code
