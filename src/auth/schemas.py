@@ -88,3 +88,6 @@ class ForgotPasswordRequest(CustomModel):
 class ResetPasswordRequest(CustomModel):
     token: str
     new_password: str
+
+class VerifyCodeRequest(CustomModel):
+    token: str
