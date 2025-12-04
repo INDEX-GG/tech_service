@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import UUID4
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import utils
@@ -12,7 +12,7 @@ from src.auth.config import auth_config
 from src.auth.exceptions import InvalidCredentials
 from src.auth.schemas import AuthUser
 from src.auth.security import check_password, hash_password
-from src.models import RefreshTokens, User, execute, fetch_one, Roles
+from src.models import RefreshTokens, User, execute, fetch_one, Roles, PasswordResetToken
 
 
 async def create_user(user: AuthUser) -> dict[str, Any] | None:
@@ -87,3 +87,40 @@ async def authenticate_user(auth_data: OAuth2PasswordRequestForm, session: Async
         raise InvalidCredentials()
 
     return user
+
+
+async def create_password_reset_token(user_id: int, token: str) -> None:
+    expires_at = datetime.utcnow() + timedelta(minutes=30)
+    await execute(
+        insert(PasswordResetToken).values(
+            token=token,
+            user_id=user_id,
+            expires_at=expires_at,
+        )
+    )
+
+async def get_password_reset_token(token: str) -> dict[str, Any] | None:
+    return await fetch_one(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token == token,
+            PasswordResetToken.expires_at > datetime.utcnow(),
+        )
+    )
+
+async def expire_password_reset_token(token: str) -> None:
+    from sqlalchemy import delete
+    from src.database import engine
+    async with engine.begin() as conn:
+        await conn.execute(
+            delete(PasswordResetToken.__table__).where(PasswordResetToken.token == token)
+        )
+
+async def update_user_password(user_id: int, new_password: str, session: AsyncSession) -> None:
+    from sqlalchemy import update
+    from .security import hash_password
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(password=hash_password(new_password))
+    )
+    await session.commit()

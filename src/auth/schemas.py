@@ -80,3 +80,11 @@ class AccessTokenResponse(CustomModel):
 
 class RegisterUserResponse(CustomModel):
     username: str
+
+
+class ForgotPasswordRequest(CustomModel):
+    username: str
+
+class ResetPasswordRequest(CustomModel):
+    token: str
+    new_password: str

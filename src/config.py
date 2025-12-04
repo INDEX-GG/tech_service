@@ -27,6 +27,11 @@ class Config(BaseSettings):
     APP_VERSION: str = "2"
     VERSION: str | None
 
+    EMAILJS_USER_ID: str
+    EMAILJS_SERVICE_ID: str
+    EMAILJS_TEMPLATE_ID: str
+    FRONTEND_URL: str = "http://localhost:5173"
+
 
 settings = Config()
 

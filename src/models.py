@@ -265,3 +265,12 @@ async def execute(select_query: Insert | Update) -> None:
     async with engine.begin() as conn:
         await conn.execute(select_query)
 
+
+class PasswordResetToken(Base):
+    __tablename__ = "auth_password_reset_token"
+    __table_args__ = {"schema": "public"}
+    token = Column("token", String, primary_key=True)
+    user_id = Column("user_id", Integer, ForeignKey("public.users.id"), nullable=False)
+    expires_at = Column("expires_at", DateTime, nullable=False)
+    created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
+
