@@ -16,7 +16,7 @@ from sqlalchemy import (
     Select,
     String,
     Update,
-    func
+    func,
 )
 from sqlalchemy import Enum as EnumSQL
 from sqlalchemy.dialects.postgresql import UUID
@@ -273,4 +273,13 @@ class PasswordResetToken(Base):
     user_id = Column("user_id", Integer, ForeignKey("public.users.id"), nullable=False)
     expires_at = Column("expires_at", DateTime, nullable=False)
     created_at = Column("created_at", DateTime, server_default=func.now(), nullable=False)
+
+
+class PasswordResetAttempt(Base):
+    """Модель отслеживания неудачных попыток сброса пароля"""
+    __tablename__ = "auth_password_reset_attempt"
+    __table_args__ = {"schema": "public"}
+    email = Column("email", String, primary_key=True)
+    failed_attempts = Column("failed_attempts", Integer, nullable=False, default=0)
+    last_attempt_at = Column("last_attempt_at", DateTime, nullable=False, default=func.now(), index=True)
 
