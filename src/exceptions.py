@@ -2,6 +2,8 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from src.auth.constants import ErrorCode
+
 
 class DetailedHTTPException(HTTPException):
     STATUS_CODE = status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -31,3 +33,16 @@ class NotAuthenticated(DetailedHTTPException):
 
     def __init__(self) -> None:
         super().__init__(headers={"WWW-Authenticate": "Bearer"})
+
+
+
+class RateLimitExceeded(HTTPException):
+    def __init__(self, retry_after: int):
+        super().__init__(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=ErrorCode.RATE_LIMIT_EXCEEDED,
+            headers={"Retry-After": str(retry_after)}
+        )
+
+class InvalidResetCode(NotAuthenticated):
+    DETAIL = ErrorCode.INVALID_RESET_CODE

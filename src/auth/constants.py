@@ -6,3 +6,5 @@ class ErrorCode:
     USERNAME_TAKEN = "Пользователь с таким логином уже существует"
     REFRESH_TOKEN_NOT_VALID = "Неверный рефреш токен"
     REFRESH_TOKEN_REQUIRED = "Обязательно наличие рефреш токена"
+    RATE_LIMIT_EXCEEDED = "Слишком много попыток. Попробуйте позже."
+    INVALID_RESET_CODE = "Неверный или просроченный код подтверждения."
