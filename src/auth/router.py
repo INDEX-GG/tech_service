@@ -12,11 +12,11 @@ from src.auth.dependencies import (
 )
 from src.auth.email import send_password_reset_email
 from src.auth.exceptions import InvalidCredentials
-from src.auth.rate_limiter import is_password_reset_allowed
+from src.auth.rate_limiter import is_password_reset_allowed, reset_failed_attempts
 from src.auth.schemas import AccessTokenResponse, AuthUser, RegisterUserResponse, ForgotPasswordRequest, \
     ResetPasswordRequest, VerifyCodeRequest
 from src.database import get_async_session
-from src.utils import generate_random_alphanum
+from src.exceptions import InvalidResetCode, RateLimitExceeded
 
 router = APIRouter()
 
@@ -68,35 +68,30 @@ async def logout_user(
 ) -> None:
     await service.expire_refresh_token(refresh_token["uuid"])
 
-@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+
+@router.post("/forgot-password", status_code=202)
 async def forgot_password(
     request: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_async_session),
 ):
+    retry_after = await is_password_reset_allowed(request.username)
+    if retry_after is not None:
+        raise RateLimitExceeded(retry_after)
+
     user = await service.get_user_by_username(request.username, session)
-    if not user:
-        return {"msg": "Если пользователь существует, код будет отправлен на email."}
-
-    if not is_password_reset_allowed(user.username):
-        return {"msg": "Подождите 5 минут до следующей попытки ."}
-
-    token = await service.generate_unique_code()
-    await service.create_password_reset_token(user.id, token)
-
-    background_tasks.add_task(send_password_reset_email, to_email=user.username, token=token)
+    if user:
+        token = await service.generate_unique_code()
+        await service.create_password_reset_token(user.id, token)
+        background_tasks.add_task(send_password_reset_email, to_email=user.username, token=token)
 
     return {"msg": "Если пользователь существует, код будет отправлен на email."}
 
-
 @router.post("/verify-reset-code", status_code=status.HTTP_200_OK)
-async def verify_reset_code(
-    request: VerifyCodeRequest,
-):
-    """Проверка кода без смены пароля"""
+async def verify_reset_code(request: VerifyCodeRequest):
     token_data = await service.get_password_reset_token(request.token)
     if not token_data:
-        raise InvalidCredentials()
+        raise InvalidResetCode()
     return {"msg": "Код подтверждён. Можете задать новый пароль."}
 
 
@@ -112,5 +107,9 @@ async def reset_password(
     await service.update_user_password(token_data["user_id"], request.new_password, session)
     await service.expire_password_reset_token(request.token)
     await service.expire_all_refresh_tokens(token_data["user_id"])
+
+    user = await service.get_user_by_id(token_data["user_id"])
+    if user:
+        await reset_failed_attempts(user["username"])
 
     return {"msg": "Пароль успешно обновлён."}

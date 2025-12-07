@@ -1,16 +1,77 @@
-from collections import defaultdict, deque
-from time import time
+# src/auth/rate_limiter.py
+from datetime import datetime, timedelta
+from sqlalchemy import select, update, insert, delete
+from src.database import engine
+from src.models import PasswordResetAttempt
+from src.config import settings
 
-_requests = defaultdict(deque)
-MAX_REQUESTS = 1
-WINDOW_SECONDS = 300  # 5 минут
+MAX_FAILED_ATTEMPTS = 3
+LOCKOUT_DURATIONS = [1, 5, 1440]
 
-def is_password_reset_allowed(email: str) -> bool:
-    now = time()
-    hist = _requests[email]
-    while hist and hist[0] < now - WINDOW_SECONDS:
-        hist.popleft()
-    if len(hist) >= MAX_REQUESTS:
-        return False
-    hist.append(now)
-    return True
+
+async def is_password_reset_allowed(email: str) -> int | None:
+    """
+    Проверяет, разрешена ли попытка сброса пароля.
+
+    Возвращает:
+        - None → если разрешено,
+        - секунды до разблокировки → если заблокировано.
+    """
+    now = datetime.utcnow()
+    async with engine.begin() as conn:
+        if settings.ENVIRONMENT in ("TEST", "LOCAL"):
+            return None
+
+        cutoff = now - timedelta(days=2)
+        await conn.execute(
+            delete(PasswordResetAttempt).where(PasswordResetAttempt.last_attempt_at < cutoff)
+        )
+
+        result = await conn.execute(
+            select(PasswordResetAttempt).where(PasswordResetAttempt.email == email)
+        )
+        attempt = result.fetchone()
+
+        if not attempt:
+            await conn.execute(
+                insert(PasswordResetAttempt).values(
+                    email=email,
+                    failed_attempts=1,
+                    last_attempt_at=now
+                )
+            )
+            return None
+
+        if now - attempt.last_attempt_at > timedelta(days=1):
+            await conn.execute(
+                update(PasswordResetAttempt)
+                .where(PasswordResetAttempt.email == email)
+                .values(failed_attempts=1, last_attempt_at=now)
+            )
+            return None
+
+        if attempt.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            lock_duration = LOCKOUT_DURATIONS[-1]
+        else:
+            lock_duration = LOCKOUT_DURATIONS[attempt.failed_attempts - 1]
+
+        unlock_time = attempt.last_attempt_at + timedelta(minutes=lock_duration)
+        if now < unlock_time:
+            return int((unlock_time - now).total_seconds())
+
+        await conn.execute(
+            update(PasswordResetAttempt)
+            .where(PasswordResetAttempt.email == email)
+            .values(failed_attempts=attempt.failed_attempts + 1, last_attempt_at=now)
+        )
+        return None
+
+
+async def reset_failed_attempts(email: str) -> None:
+    """Сбрасывает счётчик попыток при успешном восстановлении пароля"""
+    async with engine.begin() as conn:
+        await conn.execute(
+            update(PasswordResetAttempt)
+            .where(PasswordResetAttempt.email == email)
+            .values(failed_attempts=0, last_attempt_at=datetime.utcnow())
+        )
