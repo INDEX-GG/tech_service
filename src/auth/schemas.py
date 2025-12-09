@@ -63,7 +63,6 @@ class AuthUser(CustomModel):
 
         return v
 
-
 class JWTData(CustomModel):
     user_id: int = Field(alias="sub")
     is_active: bool = False
@@ -82,12 +81,20 @@ class RegisterUserResponse(CustomModel):
     username: str
 
 
-class ForgotPasswordRequest(CustomModel):
-    username: str
-
 class ResetPasswordRequest(CustomModel):
     token: str
     new_password: str
 
+
 class VerifyCodeRequest(CustomModel):
     token: str
+
+
+class ForgotPasswordRequest(CustomModel):
+    username: str
+
+    @field_validator("username")
+    def validate_email(cls, v: str) -> str:
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", v):
+            raise HTTPException(422, "Некорректный адрес электронной почты.")
+        return v

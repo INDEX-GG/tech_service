@@ -8,20 +8,17 @@ from src.config import settings
 MAX_FAILED_ATTEMPTS = 3
 LOCKOUT_DURATIONS = [1, 5, 1440]
 
-
 async def is_password_reset_allowed(email: str) -> int | None:
     """
-    Проверяет, разрешена ли попытка сброса пароля.
-
     Возвращает:
-        - None → если разрешено,
-        - секунды до разблокировки → если заблокировано.
+      - None → если разрешено,
+      - секунды до разблокировки → если заблокировано.
     """
+    if settings.ENVIRONMENT in ("TEST", "LOCAL"):
+        return None
+
     now = datetime.utcnow()
     async with engine.begin() as conn:
-        if settings.ENVIRONMENT in ("TEST", "LOCAL"):
-            return None
-
         cutoff = now - timedelta(days=2)
         await conn.execute(
             delete(PasswordResetAttempt).where(PasswordResetAttempt.last_attempt_at < cutoff)
@@ -33,6 +30,7 @@ async def is_password_reset_allowed(email: str) -> int | None:
         attempt = result.fetchone()
 
         if not attempt:
+            # Первая попытка — разрешаем
             await conn.execute(
                 insert(PasswordResetAttempt).values(
                     email=email,
@@ -66,9 +64,7 @@ async def is_password_reset_allowed(email: str) -> int | None:
         )
         return None
 
-
 async def reset_failed_attempts(email: str) -> None:
-    """Сбрасывает счётчик попыток при успешном восстановлении пароля"""
     async with engine.begin() as conn:
         await conn.execute(
             update(PasswordResetAttempt)

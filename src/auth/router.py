@@ -85,7 +85,7 @@ async def forgot_password(
         await service.create_password_reset_token(user.id, token)
         background_tasks.add_task(send_password_reset_email, to_email=user.username, token=token)
 
-    return {"msg": "Если пользователь существует, код будет отправлен на email."}
+    return {"msg": "Код восстановления отправлен на email."}
 
 @router.post("/verify-reset-code", status_code=status.HTTP_200_OK)
 async def verify_reset_code(request: VerifyCodeRequest):
