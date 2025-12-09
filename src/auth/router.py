@@ -11,7 +11,7 @@ from src.auth.dependencies import (
     valid_user_create,
 )
 from src.auth.email import send_password_reset_email
-from src.auth.exceptions import InvalidCredentials
+from src.auth.exceptions import InvalidCredentials, InvalidUser
 from src.auth.rate_limiter import is_password_reset_allowed, reset_failed_attempts
 from src.auth.schemas import AccessTokenResponse, AuthUser, RegisterUserResponse, ForgotPasswordRequest, \
     ResetPasswordRequest, VerifyCodeRequest
@@ -75,15 +75,17 @@ async def forgot_password(
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_async_session),
 ):
+    user = await service.get_user_by_username(request.username, session)
+    if not user:
+        raise InvalidUser()
+
     retry_after = await is_password_reset_allowed(request.username)
     if retry_after is not None:
         raise RateLimitExceeded(retry_after)
 
-    user = await service.get_user_by_username(request.username, session)
-    if user:
-        token = await service.generate_unique_code()
-        await service.create_password_reset_token(user.id, token)
-        background_tasks.add_task(send_password_reset_email, to_email=user.username, token=token)
+    token = await service.generate_unique_code()
+    await service.create_password_reset_token(user.id, token)
+    background_tasks.add_task(send_password_reset_email, to_email=user.username, token=token)
 
     return {"msg": "Код восстановления отправлен на email."}
 
